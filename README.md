@@ -21,9 +21,7 @@ The dataset used is the "Perth Property Prices" dataset sourced from Kaggle. The
 
 ### 4.1. Data Cleaning & Preprocessing
 
-A multi-stage cleaning process was implemented to ensure data quality and integrity.
-
-- **Manual Data Correction:** Initial exploration revealed specific, significant errors in the raw data (e.g., properties with a price of $1). To handle this transparently, a `corrections.csv` file was created to house rules for fixing or deleting these known erroneous rows. A Python script programmatically applies these rules at the start of the workflow, ensuring that all corrections are documented and the process is 100% reproducible.
-- **Data Type Correction:** Converted the `Date_Sold` column from an object to a `datetime` type to enable time-based analysis.
-- **Automated Outlier Handling:** After manual corrections, a broader filtering process was applied to remove statistical outliers in `Price` and `Land_Size` (e.g., removing the top 1%) to prevent skew in models.
-- **Feature Engineering:** Extracted `Sale_Year` and `Sale_Month` from the `Date_Sold` column to create features that can capture market seasonality and long-term trends.
+- **Manual Data Correction:** Programmatically corrected specific, known data entry errors using an external `corrections.csv` file. This process fixed or removed listings with demonstrably incorrect values (e.g., a price of $1), ensuring full reproducibility.
+- **Data Integrity Decision:** After manual corrections, the remaining extreme values in `Price` and `Land_Size` were validated as legitimate market data points. A deliberate decision was made to **retain these outliers** to ensure the analysis reflects the full spectrum of the Perth real estate market, including high-value properties.
+- **Technical Data Conversion:** Converted the `Date_Sold` column from a text-based format to a proper `datetime` object, a necessary step for any time-series or date-based analysis.
+- **Feature Engineering:** Created new features (`Sale_Year`, `Sale_Month`, `Sale_DayOfWeek`) from the `Date_Sold` column to enable analysis of market trends over time.
