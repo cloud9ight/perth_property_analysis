@@ -7,3 +7,5 @@ Listing_ID,Column_To_Correct,New_Value
 142122104,Price,530000
 142973724,Land_Size,404
 123744814,Land_Size,DELETE_ROW
+105535616,Postcode,6152
+104755052,Postcode,6014

@@ -2,26 +2,70 @@
 
 ## 1. Project Overview
 
-This project conducts a comprehensive analysis of the Perth real estate market using a dataset of property listings from Kaggle. The primary goals are to perform robust data cleaning and feature engineering, identify the key drivers of property prices through in-depth exploratory data analysis, and ultimately build a machine learning model to predict property valuations. This project also demonstrates data engineering skills by designing and planning the population of a relational SQL database schema for scalable data management.
+This project conducts an end-to-end analysis of the Perth real estate market using a dataset of property listings from Kaggle. The project's core objectives are:
+
+1.  **Data Engineering:** To design and implement a robust ETL (Extract, Transform, Load) pipeline that cleans raw data and populates a structured, relational MySQL database.
+2.  **Exploratory Data Analysis (EDA):** To uncover key trends, patterns, and insights from the cleaned data through SQL queries and Python-based visualizations.
+3.  **Predictive Modeling:** To build and evaluate a machine learning model capable of predicting property prices based on their features.
+
+This repository documents the entire workflow, from initial data inspection to the final analysis and modeling.
 
 ## 2. Tech Stack
 
 - **Programming Language:** Python
 - **Core Libraries:** Pandas, NumPy, Matplotlib, Seaborn, Scikit-learn
-- **Database Schema:** SQL (designed for SQLite/PostgreSQL/MySQL)
-- **Development Environment:** Jupyter Notebook, Git, VS Code
+- **Database:** MySQL
+- **Database Interface:** SQLAlchemy, PyMySQL
+- **Development Environment:** Jupyter Notebook, Git, VS Code, MySQL Workbench
 
-## 3. Data Source
+## 3. Database Schema Design
 
-The dataset used is the "Perth Property Prices" dataset sourced from Kaggle. The raw dataset contains approximately 43,000 listings with 21 features, including property attributes, location details, and sale prices.
+A relational **Star Schema** was designed to structure the data for optimal analytical querying and data integrity. This model separates descriptive attributes (Dimensions) from core transactional data (Facts).
 
-[Link to Dataset](https://www.kaggle.com/datasets/heptix/perth-property-prices)
+**Final Schema Diagram:**
 
-## 4. Methodology
+- **Fact Table:** `FACT_Properties` (Contains core metrics like price, land size, and foreign keys)
+- **Dimension Tables:**
+  - `DIM_Suburbs` (Unique suburbs and postcodes)
+  - `DIM_Agencies` (Unique real estate agencies)
+  - `DIM_Layouts` (Unique combinations of bedrooms and bathrooms)
+  - `DIM_Primary_Schools` (Unique primary schools and their ICSEA scores)
+  - `DIM_Secondary_Schools` (Unique secondary schools and their ICSEA scores)
 
-### 4.1. Data Cleaning & Preprocessing
+This design ensures data consistency, reduces redundancy, and significantly improves query performance for analytical tasks.
 
-- **Manual Data Correction:** Programmatically corrected specific, known data entry errors using an external `corrections.csv` file. This process fixed or removed listings with demonstrably incorrect values (e.g., a price of $1), ensuring full reproducibility.
-- **Data Integrity Decision:** After manual corrections, the remaining extreme values in `Price` and `Land_Size` were validated as legitimate market data points. A deliberate decision was made to **retain these outliers** to ensure the analysis reflects the full spectrum of the Perth real estate market, including high-value properties.
-- **Technical Data Conversion:** Converted the `Date_Sold` column from a text-based format to a proper `datetime` object, a necessary step for any time-series or date-based analysis.
-- **Feature Engineering:** Created new features (`Sale_Year`, `Sale_Month`, `Sale_DayOfWeek`) from the `Date_Sold` column to enable analysis of market trends over time.
+_(The detailed `CREATE TABLE` script can be found in the `sql/create_tables.sql` file.)_
+
+## 4. ETL (Extract, Transform, Load) Pipeline
+
+A comprehensive ETL process was developed in a Jupyter Notebook to populate the MySQL database. This automated workflow is fully reproducible.
+
+### 4.1. Extract
+
+- Loaded the raw `perth_housing.csv` dataset into a pandas DataFrame.
+- Loaded a custom `corrections.csv` file to manage rules for manual data fixes.
+
+### 4.2. Transform
+
+The transformation phase involved several critical steps to ensure data quality:
+
+- **Manual Correction:** Programmatically applied fixes from `corrections.csv` to correct known data entry errors or delete invalid rows (e.g., properties with a price of $1).
+- **Data Sanitization:** Standardized key categorical columns (`Agency_Name`, `Primary_School_Name`, `Secondary_School_Name`) by stripping hidden whitespace and converting to a consistent lowercase format. This was a crucial step to prevent `UNIQUE` constraint violations in the database.
+- **Type Conversion:** Converted the `Date_Sold` column to a proper `datetime` object.
+- **Feature Engineering:** Created a powerful `Layout` interaction feature by combining `Bedrooms` and `Bathrooms` (e.g., '3b2b') to capture the property's floor plan.
+
+### 4.3. Load
+
+- The ETL script first executes `sql/create_tables.sql` to drop and recreate all tables, ensuring an idempotent (safely re-runnable) process.
+- Populated all `DIM_` tables with unique, sanitized data.
+- Fetched the auto-generated primary keys from the `DIM_` tables.
+- Merged these foreign keys back into the main dataset.
+- Loaded the final, clean, and fully-related data into the central `FACT_Properties` table.
+
+## 5. Exploratory Data Analysis (EDA)
+
+_(This section will be filled with insights discovered from querying the database.)_
+
+## 6. Predictive Modeling
+
+_(This section will be updated after the modeling phase.)_
