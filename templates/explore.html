@@ -4,11 +4,12 @@
 
 {% block content %}
     <h2>Explore Perth Property Data</h2>
-    <p>Use the filters below to query the database and find insights. Results are limited to the most expensive properties matching your criteria.</p>
+    <p>Use the filters below to query the real database. Displays a statistical summary and lists sold properties descending.</p>
 
+    <div class="filter-container">
     <!-- Filter Form -->
-    <form action="{{ url_for('explore') }}" method="post">
-        <h3>Filters</h3>
+    <form class="filter-form" action="{{ url_for('explore') }}" method="post">
+         <div class="filter-group">
         
         <label for="year_select">Year:</label>
         <select id="year_select" name="year_select">
@@ -17,7 +18,9 @@
                 <option value="{{ year }}" {% if year == selected_filters.year %}selected{% endif %}>{{ year }}</option>
             {% endfor %}
         </select>
+      </div>
 
+        <div class="filter-group">
         <label for="suburb_select">Suburb:</label>
         <select id="suburb_select" name="suburb_select">
             <option value="">-- All Suburbs --</option>
@@ -27,7 +30,9 @@
                 </option>
             {% endfor %}
         </select>
+        </div>
 
+        <div class="filter-group">
         <label for="layout_select">Layout:</label>
         <select id="layout_select" name="layout_select">
             <option value="">-- All Layouts --</option>
@@ -37,29 +42,62 @@
                 </option>
             {% endfor %}
         </select>
+        </div>
 
         <button type="submit">Apply Filters</button>
     </form>
+  </div>
 
     <hr style="margin: 2em 0;">
 
     <!-- Results Section -->
+
+     <div class="summary">
+        <h3>Statistical Summary</h3>
+        <!-- Only show this section if the 'stats_summary' dictionary exists -->
+        {% if stats_summary %}
+            <div class="summary-grid">
+                <div class="summary-box">
+                    <h4>Market Overview</h4>
+                    <p><strong>Total Sales Found:</strong> {{ stats_summary.total_sales }}</p>
+                    <p><strong>Average Price:</strong> ${{ "{:,.0f}".format(stats_summary.avg_price) }}</p>
+                    <p><strong>Median Price:</strong> ${{ "{:,.0f}".format(stats_summary.median_price) }}</p>
+                </div>
+                <div class="summary-box">
+                    <h4>Most Expensive Sale</h4>
+                    <p><strong>Price:</strong> ${{ "{:,.0f}".format(stats_summary.max_price) }}</p>
+                    <p><strong>Address:</strong> {{ stats_summary.max_price_address }}</p>
+                    <p><strong>Date:</strong> {{ stats_summary.max_price_date.strftime('%Y-%m-%d') }}</p>
+                    <p><strong>Land Size:</strong> {{ stats_summary.max_price_land_size }} sqm</p>
+                </div>
+                <div class="summary-box">
+                    <h4>Least Expensive Sale</h4>
+                    <p><strong>Price:</strong> ${{ "{:,.0f}".format(stats_summary.min_price) }}</p>
+                    <p><strong>Address:</strong> {{ stats_summary.min_price_address }}</p>
+                    <p><strong>Date:</strong> {{ stats_summary.min_price_date.strftime('%Y-%m-%d') }}</p>
+                    <p><strong>Land Size:</strong> {{ stats_summary.min_price_land_size }} sqm</p>
+                </div>
+            </div>
+        {% elif request.method == 'POST' %}
+            <p>No statistical summary could be generated for the selected criteria.</p>
+        {% endif %}
+    </div>
     <div class="results">
         <h3>Query Results</h3>
         <!-- Only show the table if the 'results' list is not empty -->
-        {% if results %}
-            <p>Found <strong>{{ results | length }}</strong> matching records.</p>
+        {% if results_list %}
+            <p>Found <strong>{{ results_list | length }}</strong> matching records.</p>
             <table>
                 <thead>
                     <tr>
                         <!-- Dynamically create table headers from the keys of the first result dictionary -->
-                        {% for key in results[0].keys() %}
+                        {% for key in results_list[0].keys() %}
                             <th>{{ key.replace('_', ' ') | title }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
                 <tbody>
-                    {% for row in results %}
+                    {% for row in results_list %}
                         <tr>
                             <!-- Loop through each value in the row dictionary -->
                             {% for value in row.values() %}
