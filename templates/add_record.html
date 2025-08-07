@@ -61,8 +61,8 @@ content %}
   />
 
   <!-- Dynamic Dropdown for Suburb -->
-  <label for="suburb_id">Suburb:</label>
-  <select id="suburb_id" name="suburb_id" required>
+  <label for="suburb_select">Suburb:</label>
+  <select id="suburb_select" name="suburb_id" required>
     <option value="">-- Select a Suburb --</option>
     {% for suburb in suburbs %}
     <option value="{{ suburb.suburb_id }}">
@@ -70,6 +70,16 @@ content %}
     </option>
     {% endfor %}
   </select>
+
+  <!-- display the auto-filled postcode -->
+  <label for="postcode_display">Postcode:</label>
+  <input
+    type="text"
+    id="postcode_display"
+    name="postcode_display"
+    readonly
+    placeholder="Auto-filled from address"
+  />
 
   <!-- Dynamic Dropdown for Layout -->
   <label for="layout_id">Layout:</label>
@@ -117,23 +127,71 @@ content %}
 </form>
 {% endblock %} {% block scripts %}
 <script>
-  // This function will be called by the Google Maps script once it's loaded.
   function initAutocomplete() {
-    // Get the address input element.
     const addressInput = document.getElementById("address");
+    // We get the elements here
+    const suburbSelect = document.getElementById("suburb_select");
+    const postcodeDisplay = document.getElementById("postcode_display");
 
-    // Create the autocomplete object, restricting the search to Australia.
+    // Defensive check: if any element is not found, log an error and stop.
+    if (!addressInput || !suburbSelect || !postcodeDisplay) {
+      console.error(
+        "Critical Error: One or more form elements could not be found in the DOM."
+      );
+      return;
+    }
+
     const autocomplete = new google.maps.places.Autocomplete(addressInput, {
       componentRestrictions: { country: "au" },
-      fields: ["address_components", "formatted_address", "geometry"],
+      fields: ["address_components", "formatted_address"],
       types: ["address"],
     });
 
-    // You can add a listener for when a user selects an address,
-    // for example, to extract postcode and suburb and fill other fields automatically.
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      if (!place.address_components) {
+        return;
+      }
+
+      let suburbName = "";
+      let postcodeValue = "";
+
+      for (const component of place.address_components) {
+        const componentType = component.types[0];
+        if (componentType === "locality") {
+          suburbName = component.long_name.toLowerCase();
+        }
+        if (componentType === "postal_code") {
+          postcodeValue = component.long_name;
+        }
+      }
+
+      // Update form fields
+      postcodeDisplay.value = postcodeValue;
+
+      // --- CORRECTED & ROBUST SUBURB SELECTION ---
+      // We already confirmed suburbSelect is not null, so this is safe.
+      let foundSuburb = false;
+      for (let i = 0; i < suburbSelect.options.length; i++) {
+        const option = suburbSelect.options[i];
+        if (option.text.toLowerCase() === suburbName) {
+          option.selected = true;
+          foundSuburb = true;
+          break;
+        }
+      }
+      // If no match was found, reset to the default option.
+      if (!foundSuburb) {
+        suburbSelect.selectedIndex = 0; // Resets to "-- Select a Suburb --"
+        console.warn(
+          `Could not find a match for suburb "${suburbName}" in the dropdown.`
+        );
+      }
+    });
   }
 </script>
 
+<!-- The Google Maps script loader -->
 <script
   src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key | safe }}&libraries=places&callback=initAutocomplete"
   defer
