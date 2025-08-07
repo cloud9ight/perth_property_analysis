@@ -95,8 +95,8 @@
 
   <!-- Dynamic Dropdown for Agency -->
   <label for="agency_id">Agency:</label>
-  <select id="agency_id" name="agency_id" required>
-    <option value="">-- Select an Agency --</option>
+  <select id="agency_id" name="agency_id" class="searchable-select" required>
+    <option value="">-- Type to search for an Agency --</option>
     {% for agency in agencies %}
     <option value="{{ agency.agency_id }}">
       {{ agency.agency_name | title }}
@@ -106,7 +106,12 @@
 
   <!-- Dynamic Dropdown for Primary School -->
   <label for="primary_school_id">Primary School:</label>
-  <select id="primary_school_id" name="primary_school_id" required>
+  <select
+    id="primary_school_id"
+    name="primary_school_id"
+    class="searchable-select"
+    required
+  >
     <option value="">-- Select a Primary School --</option>
     {% for school in primary_schools %}
     <option value="{{ school.primary_school_id }}">
@@ -117,7 +122,12 @@
 
   <!-- Dynamic Dropdown for Secondary School -->
   <label for="secondary_school_id">Secondary School:</label>
-  <select id="secondary_school_id" name="secondary_school_id" required>
+  <select
+    id="secondary_school_id"
+    name="secondary_school_id"
+    class="searchable-select"
+    required
+  >
     <option value="">-- Select a Secondary School --</option>
     {% for school in secondary_schools %}
     <option value="{{ school.secondary_school_id }}">
@@ -219,6 +229,18 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    // 1. Initialize Choices.js on all elements with the 'searchable-select' class ---
+    const elements = document.querySelectorAll(".searchable-select");
+    elements.forEach(function (element) {
+      // We create a new Choices object for each selected element.
+      // You can pass configuration options here if needed.
+      new Choices(element, {
+        searchPlaceholderValue: "Type here to search...",
+      });
+    });
+    console.log(`Initialized Choices.js on ${elements.length} dropdowns.`);
+
+    // 2. for submission listener
     const form = document.getElementById("addRecordForm");
     if (form) {
       form.addEventListener("submit", function (event) {
