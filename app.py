@@ -125,14 +125,13 @@ def add_new_record():
 
 @app.route('/explore', methods=['GET', 'POST'])
 def explore():
-    """Handles displaying filters and showing query results."""
+    """Handles displaying filters and showing query results from real db."""
     dim_data = get_dimension_data() # Get data for dropdowns
     results = []
     selected_filters = {}
 
     if request.method == 'POST':
-        try:
-            
+        try:          
             # Get selected filters from the form
             year = request.form.get('year_select')
             suburb_id = request.form.get('suburb_select')
@@ -142,13 +141,21 @@ def explore():
             selected_filters = {'year': int(year) if year else None, 
                                 'suburb_id': int(suburb_id) if suburb_id else None,
                                 'layout_id': int(layout_id) if layout_id else None}
+            logging.info(f"User submitted filters: {selected_filters}")
 
             # Build the query dynamically
             base_query = """
-                SELECT p.price, p.date_sold, s.suburb_name, l.layout_name, p.land_size
+                SELECT 
+                    p.price AS "Price",
+                    DATE_FORMAT(p.date_sold, '%Y-%m-%d') AS "Date Sold",
+                    s.suburb_name AS "Suburb",
+                    l.layout_name AS "Layout",
+                    p.land_size AS "Land Size (sqm)",
+                    p.address AS "Address"
                 FROM FACT_Properties p
                 JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
                 JOIN DIM_Layouts l ON p.layout_id = l.layout_id
+           
             """
             conditions = []
             params = {}
@@ -167,6 +174,7 @@ def explore():
                 base_query += " WHERE " + " AND ".join(conditions)
             
             base_query += " ORDER BY p.price DESC LIMIT 100;" # Limit results for performance
+            logging.info(f"Executing query: {base_query} with params: {params}")
 
             with engine.connect() as connection:
                 results_df = pd.read_sql(text(base_query), connection, params=params)
@@ -174,6 +182,7 @@ def explore():
 
         except Exception as e:
             flash(f"Error running query: {e}", 'danger')
+            logging.error(f"Failed during explore POST request: {e}")
 
     return render_template('explore.html', 
                            available_years=dim_data['available_years'], 
