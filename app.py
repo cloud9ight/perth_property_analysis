@@ -5,19 +5,30 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from sqlalchemy import create_engine, text
 import pandas as pd
 import logging
+import os
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 app.secret_key = 'a_very_secret_key_for_flashing_messages'
 logging.basicConfig(level=logging.INFO)
 
 # --- 2. Database Connection ---
-DB_USER = 'root'
+DB_USER = os.getenv("DB_USER", "root")
 DB_PASS = 'password' 
 DB_HOST = 'localhost'
 DB_PORT = '3306'
 DB_NAME = 'perth_property_db'
-db_connection_str = f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
-engine = create_engine(db_connection_str)
+# Check if the database password was loaded
+if not DB_PASS:
+    raise ValueError("DB_PASS environment variable not set. Please create a .env file.")
+
+try:
+    db_connection_str = f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
+    engine = create_engine(db_connection_str)
+    logging.info("Successfully created database engine.")
+except Exception as e:
+    logging.error(f"Failed to create database engine: {e}")
+    exit()
 
 # --- 3. Helper function to get dimension data ---
 # This avoids repeating code in both routes
@@ -68,6 +79,8 @@ def add_new_record():
     
     # For GET request, fetch dimensions and render the add_record page
     dim_data = get_dimension_data()
+    dim_data['google_maps_api_key'] = os.getenv("GOOGLE_MAPS_API_KEY")
+    
     return render_template('add_record.html', **dim_data)
 
 

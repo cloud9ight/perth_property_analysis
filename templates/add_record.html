@@ -115,4 +115,27 @@ content %}
 
   <button type="submit">Submit New Record</button>
 </form>
+{% endblock %} {% block scripts %}
+<script>
+  // This function will be called by the Google Maps script once it's loaded.
+  function initAutocomplete() {
+    // Get the address input element.
+    const addressInput = document.getElementById("address");
+
+    // Create the autocomplete object, restricting the search to Australia.
+    const autocomplete = new google.maps.places.Autocomplete(addressInput, {
+      componentRestrictions: { country: "au" },
+      fields: ["address_components", "formatted_address", "geometry"],
+      types: ["address"],
+    });
+
+    // You can add a listener for when a user selects an address,
+    // for example, to extract postcode and suburb and fill other fields automatically.
+  }
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key | safe }}&libraries=places&callback=initAutocomplete"
+  defer
+></script>
 {% endblock %}
