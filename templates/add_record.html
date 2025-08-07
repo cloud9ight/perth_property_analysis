@@ -1,10 +1,13 @@
-{% extends "base.html" %} {% block title %}Add New Record{% endblock %} {% block
-content %}
-<h2>Add a New Property Sale Record</h2>
-<p>Fill out the form below to add a new entry to the database.</p>
+{% extends "base.html" %} {% block title %}Add New Record (Mock Mode){% endblock
+%} {% block content %}
+<h2>Add a New Property Sale Record (Mock Mode)</h2>
+<p>
+  <strong>Note:</strong> You are in 'Mock Mode'. Submitted records will be shown
+  temporarily on this page but will NOT be saved to the real database.
+</p>
 
 <!-- The main data entry form -->
-<form action="{{ url_for('add_new_record') }}" method="post">
+<form id="addRecordForm" action="{{ url_for('add_new_record') }}" method="post">
   <label for="listing_id">Listing ID:</label>
   <input
     type="number"
@@ -20,7 +23,7 @@ content %}
     id="price"
     name="price"
     placeholder="e.g., 650000"
-    step="1000"
+    step="1"
     required
   />
 
@@ -123,39 +126,70 @@ content %}
     {% endfor %}
   </select>
 
-  <button type="submit">Submit New Record</button>
+  <input type="hidden" id="suburb_name_text" name="suburb_name_text" />
+  <input type="hidden" id="layout_name_text" name="layout_name_text" />
+
+  <button type="submit">Simulate Adding Record</button>
 </form>
+
+<hr style="margin: 2em 0" />
+
+<!-- section to display the "fake" database -->
+<div class="results">
+  <h3>Temporarily Added Records (Resets on Server Restart)</h3>
+  {% if records %}
+  <table style="width: 100%; border-collapse: collapse">
+    <thead>
+      <tr style="background-color: #e9ecef">
+        <th>Listing ID</th>
+        <th>Price</th>
+        <th>Address</th>
+        <th>Suburb</th>
+        <th>Layout</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Loop through the list of records passed from the backend -->
+      {% for record in records %}
+      <tr>
+        <td>{{ record.listing_id }}</td>
+        <td>${{ "{:,.0f}".format(record.price) }}</td>
+        <td>{{ record.address }}</td>
+        <td>{{ record.suburb_name }}</td>
+        <td>{{ record.layout_name }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No records have been added yet during this session.</p>
+  {% endif %}
+</div>
+
 {% endblock %} {% block scripts %}
 <script>
   function initAutocomplete() {
     const addressInput = document.getElementById("address");
-    // We get the elements here
     const suburbSelect = document.getElementById("suburb_select");
     const postcodeDisplay = document.getElementById("postcode_display");
-
-    // Defensive check: if any element is not found, log an error and stop.
     if (!addressInput || !suburbSelect || !postcodeDisplay) {
       console.error(
-        "Critical Error: One or more form elements could not be found in the DOM."
+        "Critical Error: One or more form elements could not be found for Autocomplete."
       );
       return;
     }
-
     const autocomplete = new google.maps.places.Autocomplete(addressInput, {
       componentRestrictions: { country: "au" },
       fields: ["address_components", "formatted_address"],
       types: ["address"],
     });
-
     autocomplete.addListener("place_changed", () => {
       const place = autocomplete.getPlace();
       if (!place.address_components) {
         return;
       }
-
       let suburbName = "";
       let postcodeValue = "";
-
       for (const component of place.address_components) {
         const componentType = component.types[0];
         if (componentType === "locality") {
@@ -165,12 +199,7 @@ content %}
           postcodeValue = component.long_name;
         }
       }
-
-      // Update form fields
       postcodeDisplay.value = postcodeValue;
-
-      // --- CORRECTED & ROBUST SUBURB SELECTION ---
-      // We already confirmed suburbSelect is not null, so this is safe.
       let foundSuburb = false;
       for (let i = 0; i < suburbSelect.options.length; i++) {
         const option = suburbSelect.options[i];
@@ -180,15 +209,47 @@ content %}
           break;
         }
       }
-      // If no match was found, reset to the default option.
       if (!foundSuburb) {
-        suburbSelect.selectedIndex = 0; // Resets to "-- Select a Suburb --"
+        suburbSelect.selectedIndex = 0;
         console.warn(
           `Could not find a match for suburb "${suburbName}" in the dropdown.`
         );
       }
     });
   }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("addRecordForm");
+    if (form) {
+      form.addEventListener("submit", function (event) {
+        console.log(
+          "FRONTEND V5 - Submit event fired! Capturing dropdown text..."
+        );
+        try {
+          const suburbSelect = document.getElementById("suburb_select");
+          const selectedSuburbText =
+            suburbSelect.options[suburbSelect.selectedIndex].text;
+          const layoutSelect = document.getElementById("layout_id");
+          const selectedLayoutText =
+            layoutSelect.options[layoutSelect.selectedIndex].text;
+          document.getElementById("suburb_name_text").value =
+            selectedSuburbText;
+          document.getElementById("layout_name_text").value =
+            selectedLayoutText;
+          console.log("FRONTEND V5 - Successfully set hidden fields:", {
+            suburb: selectedSuburbText,
+            layout: selectedLayoutText,
+          });
+        } catch (error) {
+          console.error("Error capturing dropdown text on submit:", error);
+        }
+      });
+    } else {
+      console.error(
+        "Critical Error: Could not find form with ID 'addRecordForm'."
+      );
+    }
+  });
 </script>
 
 <!-- The Google Maps script loader -->

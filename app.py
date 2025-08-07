@@ -12,6 +12,10 @@ app = Flask(__name__)
 app.secret_key = 'a_very_secret_key_for_flashing_messages'
 logging.basicConfig(level=logging.INFO)
 
+# This list will act as our in-memory "fake" database for new records.
+# It will be reset every time the Flask server restarts.
+fake_database_records = []
+
 # --- 2. Database Connection ---
 DB_USER = os.getenv("DB_USER", "root")
 DB_PASS = 'password' 
@@ -60,26 +64,41 @@ def index():
 
 @app.route('/add', methods=['GET', 'POST'])
 def add_new_record():
-    """Handles both displaying the form and processing new record submissions."""
+  
+    # --- Handle POST Request (MODIFIED FOR MOCKING) ---
     if request.method == 'POST':
         try:
-            # Code to handle form submission and insert into DB
-            new_record = {field: request.form.get(field) for field in request.form}
-            insert_query = text("""
-                INSERT INTO FACT_Properties (listing_id, price, address, property_type, date_sold, land_size, parking_spaces, suburb_id, layout_id, agency_id, primary_school_id, secondary_school_id)
-                VALUES (:listing_id, :price, :address, :property_type, :date_sold, :land_size, :parking_spaces, :suburb_id, :layout_id, :agency_id, :primary_school_id, :secondary_school_id)
-            """)
-            with engine.connect() as connection:
-                with connection.begin():
-                    connection.execute(insert_query, new_record)
-            flash('Success! New record added.', 'success')
-            return redirect(url_for('add_new_record'))
+            # 1. Get all the data from the submitted form.
+            new_record_data = {
+                'listing_id': request.form.get('listing_id', type=int),
+                'price': request.form.get('price', type=float),
+                'address': request.form.get('address'),
+                'property_type': request.form.get('property_type'),
+                'date_sold': request.form.get('date_sold'),
+                # We also get the text of the selected options for display purposes
+                'suburb_name': request.form.get('suburb_name_text'),
+                'layout_name': request.form.get('layout_name_text')
+            }
+            logging.info(f"Received new record data (mock mode): {new_record_data}")
+
+
+            # Instead of creating and executing a SQL INSERT statement...
+            #  append the new record dictionary to our global list.
+            fake_database_records.append(new_record_data)
+            
+            
+            flash('Success! New record has been simulated and added to the temporary list.', 'success')
+            return redirect(url_for('add_new_record')) # Redirect to clear the form
         except Exception as e:
             flash(f'Error adding record: {e}', 'danger')
     
     # For GET request, fetch dimensions and render the add_record page
     dim_data = get_dimension_data()
     dim_data['google_maps_api_key'] = os.getenv("GOOGLE_MAPS_API_KEY")
+    
+    # pass the list of fake records to the template
+    # display what has been "added" so far.
+    dim_data['records'] = fake_database_records
     
     return render_template('add_record.html', **dim_data)
 
