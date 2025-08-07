@@ -13,8 +13,11 @@
     type="number"
     id="listing_id"
     name="listing_id"
-    placeholder="e.g., 12345678"
+    placeholder="starting from 145724421"
     required
+    minlength="9"
+    pattern="\d{9,}"
+    title="Listing ID must be at least 9 digits long."
   />
 
   <label for="price">Price:</label>
@@ -41,7 +44,9 @@
     <option value="house">House</option>
     <option value="unit">Unit</option>
     <option value="villa">Villa</option>
-    <option value="townhouse">Townhouse</option>
+    <option value="apartment">apartment</option>
+    <option value="duplex-semi-detached">duplex-semi-detached</option>
+    <option value="residential-other">residential-other</option>
   </select>
 
   <label for="date_sold">Date Sold:</label>
@@ -95,7 +100,7 @@
 
   <!-- Dynamic Dropdown for Agency -->
   <label for="agency_id">Agency:</label>
-  <select id="agency_id" name="agency_id" class="searchable-select" required>
+  <select id="agency_id" name="agency_id" class="searchable-select">
     <option value="">-- Type to search for an Agency --</option>
     {% for agency in agencies %}
     <option value="{{ agency.agency_id }}">
@@ -110,9 +115,8 @@
     id="primary_school_id"
     name="primary_school_id"
     class="searchable-select"
-    required
   >
-    <option value="">-- Select a Primary School --</option>
+    <option value="">-- Type to search a Primary School --</option>
     {% for school in primary_schools %}
     <option value="{{ school.primary_school_id }}">
       {{ school.primary_school_name | title }}
@@ -126,9 +130,8 @@
     id="secondary_school_id"
     name="secondary_school_id"
     class="searchable-select"
-    required
   >
-    <option value="">-- Select a Secondary School --</option>
+    <option value="">-- Type to search a Secondary School --</option>
     {% for school in secondary_schools %}
     <option value="{{ school.secondary_school_id }}">
       {{ school.secondary_school_name | title }}

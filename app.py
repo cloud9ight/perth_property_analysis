@@ -68,6 +68,26 @@ def add_new_record():
     # --- Handle POST Request (MODIFIED FOR MOCKING) ---
     if request.method == 'POST':
         try:
+            listing_id_str = request.form.get('listing_id', '').strip()
+            if not listing_id_str.isdigit() or len(listing_id_str) < 9:
+                # If validation fails, flash an error message
+                flash('Validation Error: Listing ID must be at least 9 digits long.', 'danger')
+                # It's important to redirect back to the form
+                return redirect(url_for('add_new_record'))
+
+            
+            listing_id = int(listing_id_str)
+            # with engine.connect() as connection:
+            #     result = connection.execute(text("SELECT 1 FROM FACT_Properties WHERE listing_id = :id"), {'id': listing_id}).first()
+            #     if result:
+            #         flash(f'Validation Error: Listing ID {listing_id} already exists in the database.', 'danger')
+            #         return redirect(url_for('add_new_record'))
+
+            # mock mode, only check fake_db
+            if any(record['listing_id'] == listing_id for record in fake_database_records):
+                 flash(f'Validation Error: Listing ID {listing_id} has already been added in this session.', 'danger')
+                 return redirect(url_for('add_new_record'))     
+                    
             # 1. Get all the data from the submitted form.
             new_record_data = {
                 'listing_id': request.form.get('listing_id', type=int),
@@ -112,6 +132,7 @@ def explore():
 
     if request.method == 'POST':
         try:
+            
             # Get selected filters from the form
             year = request.form.get('year_select')
             suburb_id = request.form.get('suburb_select')
