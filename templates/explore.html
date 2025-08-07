@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Explore Property Data{% endblock %}
+
+{% block content %}
+    <h2>Explore Perth Property Data</h2>
+    <p>Use the filters below to query the database and find insights.</p>
+
+    <!-- Filter Form -->
+    <form action="{{ url_for('explore') }}" method="post">
+        <h3>Filters</h3>
+        
+        <label for="year_select">Year:</label>
+        <select id="year_select" name="year_select">
+            <option value="">-- All Years --</option>
+            <!-- Year options will be populated by the backend -->
+            {% for year in available_years %}
+                <!-- If a year was previously selected, keep it selected -->
+                <option value="{{ year }}" {% if year == selected_filters.year %}selected{% endif %}>{{ year }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="suburb_select">Suburb:</label>
+        <select id="suburb_select" name="suburb_select">
+            <option value="">-- All Suburbs --</option>
+            <!-- Suburb options will be populated by the backend -->
+            {% for suburb in available_suburbs %}
+                 <option value="{{ suburb.suburb_id }}" {% if suburb.suburb_id == selected_filters.suburb_id %}selected{% endif %}>
+                    {{ suburb.suburb_name | title }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <label for="layout_select">Layout:</label>
+        <select id="layout_select" name="layout_select">
+            <option value="">-- All Layouts --</option>
+            <!-- Layout options will be populated by the backend -->
+            {% for layout in available_layouts %}
+                <option value="{{ layout.layout_id }}" {% if layout.layout_id == selected_filters.layout_id %}selected{% endif %}>
+                    {{ layout.layout_name }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Apply Filters</button>
+    </form>
+
+    <hr style="margin: 2em 0;">
+
+    <!-- Results Section -->
+    <div class="results">
+        <h3>Query Results</h3>
+        <!-- We will only show this section if there are results to display -->
+        {% if results %}
+            <p>Found <strong>{{ results | length }}</strong> matching records.</p>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background-color: #e9ecef;">
+                        <!-- Dynamically create table headers from the first result's keys -->
+                        {% for key in results[0].keys() %}
+                            <th style="padding: 0.8em; text-align: left;">{{ key.replace('_', ' ') | title }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results %}
+                        <tr>
+                            <!-- Loop through each value in the row -->
+                            {% for value in row.values() %}
+                                <td style="padding: 0.8em; border-top: 1px solid #dee2e6;">{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No results to display. Please apply filters and click "Apply Filters".</p>
+        {% endif %}
+    </div>
+
+{% endblock %}

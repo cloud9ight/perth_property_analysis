@@ -1,0 +1,118 @@
+{% extends "base.html" %} {% block title %}Add New Record{% endblock %} {% block
+content %}
+<h2>Add a New Property Sale Record</h2>
+<p>Fill out the form below to add a new entry to the database.</p>
+
+<!-- The main data entry form -->
+<form action="{{ url_for('add_new_record') }}" method="post">
+  <label for="listing_id">Listing ID:</label>
+  <input
+    type="number"
+    id="listing_id"
+    name="listing_id"
+    placeholder="e.g., 12345678"
+    required
+  />
+
+  <label for="price">Price:</label>
+  <input
+    type="number"
+    id="price"
+    name="price"
+    placeholder="e.g., 650000"
+    step="1000"
+    required
+  />
+
+  <label for="address">Address:</label>
+  <input
+    type="text"
+    id="address"
+    name="address"
+    placeholder="e.g., 123 Hay Street"
+    required
+  />
+
+  <label for="property_type">Property Type:</label>
+  <select id="property_type" name="property_type">
+    <option value="house">House</option>
+    <option value="unit">Unit</option>
+    <option value="villa">Villa</option>
+    <option value="townhouse">Townhouse</option>
+  </select>
+
+  <label for="date_sold">Date Sold:</label>
+  <input type="date" id="date_sold" name="date_sold" required />
+
+  <label for="land_size">Land Size (sqm):</label>
+  <input
+    type="number"
+    id="land_size"
+    name="land_size"
+    placeholder="e.g., 700"
+  />
+
+  <label for="parking_spaces">Parking Spaces:</label>
+  <input
+    type="number"
+    id="parking_spaces"
+    name="parking_spaces"
+    placeholder="e.g., 2"
+  />
+
+  <!-- Dynamic Dropdown for Suburb -->
+  <label for="suburb_id">Suburb:</label>
+  <select id="suburb_id" name="suburb_id" required>
+    <option value="">-- Select a Suburb --</option>
+    {% for suburb in suburbs %}
+    <option value="{{ suburb.suburb_id }}">
+      {{ suburb.suburb_name | title }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <!-- Dynamic Dropdown for Layout -->
+  <label for="layout_id">Layout:</label>
+  <select id="layout_id" name="layout_id" required>
+    <option value="">-- Select a Layout --</option>
+    {% for layout in layouts %}
+    <option value="{{ layout.layout_id }}">{{ layout.layout_name }}</option>
+    {% endfor %}
+  </select>
+
+  <!-- Dynamic Dropdown for Agency -->
+  <label for="agency_id">Agency:</label>
+  <select id="agency_id" name="agency_id" required>
+    <option value="">-- Select an Agency --</option>
+    {% for agency in agencies %}
+    <option value="{{ agency.agency_id }}">
+      {{ agency.agency_name | title }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <!-- Dynamic Dropdown for Primary School -->
+  <label for="primary_school_id">Primary School:</label>
+  <select id="primary_school_id" name="primary_school_id" required>
+    <option value="">-- Select a Primary School --</option>
+    {% for school in primary_schools %}
+    <option value="{{ school.primary_school_id }}">
+      {{ school.primary_school_name | title }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <!-- Dynamic Dropdown for Secondary School -->
+  <label for="secondary_school_id">Secondary School:</label>
+  <select id="secondary_school_id" name="secondary_school_id" required>
+    <option value="">-- Select a Secondary School --</option>
+    {% for school in secondary_schools %}
+    <option value="{{ school.secondary_school_id }}">
+      {{ school.secondary_school_name | title }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <button type="submit">Submit New Record</button>
+</form>
+{% endblock %}
