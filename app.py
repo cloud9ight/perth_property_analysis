@@ -243,6 +243,82 @@ def explore():
                            results_list=results_list,
                            stats_summary=stats_summary,
                            selected_filters=selected_filters)
+    
+@app.route('/compare', methods=['GET', 'POST'])
+def compare():
+    """
+    Handles the multi-suburb comparison page with a MySQL-compatible median calculation.
+    """
+    dim_data = get_dimension_data()
+    stats_summaries = []
+    selected_filters = {}
+
+    if request.method == 'POST':
+        try:
+            year = request.form.get('year_select')
+            suburb_ids = request.form.getlist('suburb_select', type=int)
+            layout_id = request.form.get('layout_select')
+            
+            selected_filters = {
+                'year': int(year) if year else None, 
+                'suburb_ids': suburb_ids,
+                'layout_id': int(layout_id) if layout_id else None
+            }
+            logging.info(f"User submitted filters for comparison: {selected_filters}")
+
+            if not suburb_ids:
+                flash("Please select at least one suburb for comparison.", 'danger')
+            else:
+                with engine.connect() as connection:
+                    for suburb_id in suburb_ids:
+                        conditions = ["p.suburb_id = :suburb_id"]
+                        params = {'suburb_id': suburb_id}
+                        if year: conditions.append("YEAR(p.date_sold) = :year"); params['year'] = year
+                        if layout_id: conditions.append("p.layout_id = :layout_id"); params['layout_id'] = layout_id
+                        where_clause = "WHERE " + " AND ".join(conditions)
+                        
+                        # ======================================================================
+                        # ▼▼▼ THIS IS THE CRITICAL FIX: The MySQL-compatible query ▼▼▼
+                        # ======================================================================
+                        query_stats_simple = f"""
+                            WITH FilteredProperties AS (
+                                SELECT p.price
+                                FROM FACT_Properties p
+                                {where_clause}
+                            ),
+                            RankedProperties AS (
+                                SELECT 
+                                    price,
+                                    ROW_NUMBER() OVER (ORDER BY price ASC) as row_num,
+                                    (SELECT COUNT(*) FROM FilteredProperties) as total_count
+                                FROM FilteredProperties
+                            )
+                            SELECT
+                                (SELECT s.suburb_name FROM DIM_Suburbs s WHERE s.suburb_id = :suburb_id) as suburb_name,
+                                (SELECT COUNT(*) FROM FilteredProperties) as total_sales,
+                                (SELECT AVG(price) FROM FilteredProperties) as avg_price,
+                                -- The robust median calculation using window functions
+                                (SELECT AVG(price) FROM RankedProperties 
+                                 WHERE row_num IN (FLOOR((total_count + 1) / 2), CEIL((total_count + 1) / 2))) as median_price
+                        """
+                        # ======================================================================
+                        
+                        stats_df = pd.read_sql(text(query_stats_simple), connection, params=params)
+                        
+                        # We must check if total_sales is not None and > 0 before appending
+                        if not stats_df.empty and stats_df.iloc[0]['total_sales'] and stats_df.iloc[0]['total_sales'] > 0:
+                            stats_summaries.append(stats_df.iloc[0].to_dict())
+
+        except Exception as e:
+            flash(f"Error running comparison query: {e}", 'danger')
+            logging.error(f"Failed during compare POST request: {e}")
+
+    return render_template('compare.html', 
+                           available_years=dim_data['available_years'],
+                           available_suburbs=dim_data['suburbs'],
+                           available_layouts=dim_data['layouts'],
+                           stats_summaries=stats_summaries,
+                           selected_filters=selected_filters)
 
 # --- 5. Run the App ---
 if __name__ == '__main__':

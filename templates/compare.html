@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Suburb Markets{% endblock %}
+
+{% block content %}
+    <h2>Compare Perth Suburb Markets</h2>
+    <p>Select two or more suburbs to see a side-by-side comparison of their market overview. You can apply additional filters for year and layout.</p>
+
+    <!-- Filter Form -->
+    <div class="filter-container">
+        <form class="filter-form" action="{{ url_for('compare') }}" method="post">
+            
+            <div class="filter-group">
+                <label for="year_select">Year:</label>
+                <select id="year_select" name="year_select">
+                    <option value="">-- All Years --</option>
+                    {% for year in available_years %}
+                        <option value="{{ year }}" {% if year == selected_filters.year %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="suburb_select">Suburb(s):</label>
+                <select id="suburb_select" name="suburb_select" class="multi-searchable-select" multiple required>
+                    <!-- No default option needed for multi-select with Choices.js -->
+                    {% for suburb in available_suburbs %}
+                         <option value="{{ suburb.suburb_id }}" 
+                                 {% if suburb.suburb_id in selected_filters.suburb_ids %}selected{% endif %}>
+                            {{ suburb.suburb_name | title }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="layout_select">Layout:</label>
+                <select id="layout_select" name="layout_select" >
+                    <option value="">-- All Layouts --</option>
+                    {% for layout in available_layouts %}
+                        <option value="{{ layout.layout_id }}" {% if layout.layout_id == selected_filters.layout_id %}selected{% endif %}>
+                            {{ layout.layout_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit">Compare Suburbs</button>
+        </form>
+    </div>
+
+    <hr style="margin: 2em 0;">
+
+    <!-- Results Section for Comparison -->
+    <div class="comparison-results">
+        <h3>Comparison Summary</h3>
+        {% if stats_summaries %}
+            <div class="summary-grid">
+                {% for summary in stats_summaries %}
+                    <div class="summary-box">
+                        <h4>{{ summary.suburb_name | title }}</h4> 
+                        <p><strong>Total Sales Found:</strong> {{ summary.total_sales }}</p>
+                        <p><strong>Average Price:</strong> ${{ "{:,.0f}".format(summary.avg_price) if summary.avg_price else 'N/A' }}</p>
+                        <p><strong>Median Price:</strong> ${{ "{:,.0f}".format(summary.median_price) if summary.median_price else 'N/A' }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% elif request.method == 'POST' %}
+            <p>No data found for the selected criteria. Please try a different selection.</p>
+        {% else %}
+            <p>Please select the suburbs you wish to compare and click the button.</p>
+        {% endif %}
+    </div>
+
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Initialize Choices.js ONLY for the multi-select suburb dropdown ---
+        const multiSelect = document.getElementById('suburb_select');
+        
+        if (multiSelect) {
+            console.log("Initializing Choices.js for Suburb multi-select.");
+            new Choices(multiSelect, {
+                removeItemButton: true,
+                searchPlaceholderValue: "Type to search suburbs...",
+                placeholder: true,
+                placeholderValue: 'Select one or more suburbs...'
+            });
+        } else {
+            console.error("Could not find the suburb multi-select element.");
+        }
+    });
+</script>
+{% endblock %}
