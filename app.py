@@ -8,6 +8,8 @@ import logging
 import os
 from dotenv import load_dotenv
 
+#load_dotenv()
+
 app = Flask(__name__)
 app.secret_key = 'a_very_secret_key_for_flashing_messages'
 logging.basicConfig(level=logging.INFO)
@@ -277,29 +279,44 @@ def compare():
             if not suburb_ids and not years and not layout_ids:
                 flash("Please select at least one filter.", 'danger')
             else:
-                # --- Build ONE powerful query ---
+                # --- Dynamically build SELECT, WHERE, and GROUP BY clauses ---
+                select_columns = ["s.suburb_name", "COUNT(*) AS total_sales", "AVG(p.price) AS avg_price"]
+                group_by_columns = ["s.suburb_name"]
                 conditions = []
                 params = {}
-                if suburb_ids: conditions.append("p.suburb_id IN :suburb_ids"); params['suburb_ids'] = tuple(suburb_ids)
-                if years: conditions.append("YEAR(p.date_sold) IN :years"); params['years'] = tuple(years)
-                if layout_ids: conditions.append("p.layout_id IN :layout_ids"); params['layout_ids'] = tuple(layout_ids)
+                # Add filters and update SELECT/GROUP BY clauses dynamically
+                if suburb_ids:
+                    conditions.append("p.suburb_id IN :suburb_ids")
+                    params['suburb_ids'] = tuple(suburb_ids)
+                
+                if years:
+                    conditions.append("YEAR(p.date_sold) IN :years")
+                    params['years'] = tuple(years)
+                    select_columns.insert(1, "YEAR(p.date_sold) AS sale_year") # Add to SELECT
+                    group_by_columns.append("sale_year") # Add to GROUP BY
+                
+                if layout_ids:
+                    conditions.append("p.layout_id IN :layout_ids")
+                    params['layout_ids'] = tuple(layout_ids)
+                    select_columns.insert(1, "l.layout_name") # Add to SELECT
+                    group_by_columns.append("l.layout_name") # Add to GROUP BY
                 
                 where_clause = "WHERE " + " AND ".join(conditions)
+                select_clause = ", ".join(select_columns)
+                group_by_clause = "GROUP BY " + ", ".join(group_by_columns)
+                order_by_clause = "ORDER BY " + ", ".join(group_by_columns)
                 
                 # The final, powerful query with GROUP BY on both suburb and year
                 query_final = f"""
-                    SELECT
-                        s.suburb_name,
-                        YEAR(p.date_sold) AS sale_year,
-                        COUNT(*) AS total_sales,
-                        AVG(p.price) AS avg_price
+                    SELECT {select_clause}
                     FROM FACT_Properties p
                     JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
+                    JOIN DIM_Layouts l ON p.layout_id = l.layout_id
                     {where_clause}
-                    GROUP BY s.suburb_name, sale_year
-                    ORDER BY s.suburb_name, sale_year;
+                    {group_by_clause}
+                    {order_by_clause};
                 """
-
+                logging.info(f"Executing Dynamic Query: {query_final} with Params: {params}")
                 with engine.connect() as connection:
                     results_df = pd.read_sql(text(query_final), connection, params=params)
                     if not results_df.empty:

@@ -113,14 +113,18 @@
 <div class="comparison-results">
   <h3>Comparison Summary</h3>
 
-  <!-- We now check 'stats_results' -->
   {% if stats_results %}
   <div class="summary-grid">
     <!-- Loop through each result, which is a unique (suburb, year) combination -->
     {% for result in stats_results %}
     <div class="summary-box">
       <!-- The title now includes BOTH suburb and year -->
-      <h4>{{ result.suburb_name | title }} - {{ result.sale_year }}</h4>
+      <h4>
+        {# We check for each key's existence before displaying it #} {% if
+        result.suburb_name %}{{ result.suburb_name | title }}{% endif %} {% if
+        result.sale_year %} - {{ result.sale_year }}{% endif %} {% if
+        result.layout_name %} - {{ result.layout_name }}{% endif %}
+      </h4>
       <p><strong>Total Sales:</strong> {{ result.total_sales }}</p>
       <p>
         <strong>Average:</strong> ${{ "{:,.0f}".format(result.avg_price) if
