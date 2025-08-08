@@ -7,6 +7,8 @@ import pandas as pd
 import logging
 import os
 from dotenv import load_dotenv
+import hashlib 
+import random
 
 #load_dotenv()
 
@@ -56,6 +58,53 @@ def get_dimension_data():
     except Exception as e:
         logging.error(f"Failed to fetch dimension data: {e}")
         return {key: [] for key in ['suburbs', 'layouts', 'agencies', 'primary_schools', 'secondary_schools', 'available_years']}
+    
+    
+# COLOR_PALETTE = [
+#     '#3498db', '#2ecc71', '#e74c3c', '#9b59b6', '#f1c40f', 
+#     '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b'
+# ]
+# def get_color_for_string(text):
+#     """
+#     Generates a unique, visually pleasing HSL color based on the hash of a string.
+#     By keeping Saturation and Lightness constant, we ensure all colors feel like
+#     they belong to the same palette.
+#     """
+#     # 1. Hash the string to get a consistent, large number.
+#     hash_value = int(hashlib.md5(text.encode('utf-8')).hexdigest(), 16)
+    
+#     # 2. Use modulo to map the hash to a degree on the 360-degree color wheel (Hue).
+#     hue = hash_value % 360
+    
+#     # 3. Define a fixed, professional-looking Saturation and Lightness.
+#     saturation = 65  # in percent
+#     lightness = 45   # in percent
+    
+#     # 4. Return the HSL color string.
+#     return f"hsl({hue}, {saturation}%, {lightness}%)"
+
+color_cache = {}
+# A random starting point for our hue, so the colors are different on each page load.
+random.seed()
+HUE_START = random.random()
+GOLDEN_RATIO_CONJUGATE = 0.61803398875
+
+def get_color_for_string(text, index):
+    """
+    Generates a unique, visually pleasing, and well-distributed HSL color
+    for each string using the golden ratio.
+    """
+    global HUE_START
+    # Use the golden ratio to advance the hue, ensuring good distribution.
+    hue = (HUE_START + index * GOLDEN_RATIO_CONJUGATE) % 1.0
+    
+    # Convert hue from 0-1 range to 0-360 range for HSL.
+    hue_degrees = hue * 360
+    
+    saturation = 65
+    lightness = 45
+    
+    return f"hsl({hue_degrees:.0f}, {saturation}%, {lightness}%)"
 
 # --- 4. Application Routes ---
 
@@ -257,6 +306,8 @@ def compare():
     stats_results = []
     selected_filters = {'years': [], 'suburb_ids': [], 'layout_ids': []}
     selected_filter_labels = {}
+    # NEW: A dictionary to map suburb names to their colors
+    suburb_color_map = {} 
 
     if request.method == 'POST':
         try:
@@ -270,7 +321,12 @@ def compare():
             if years: selected_filter_labels['Years'] = sorted(years)
             if suburb_ids:
                 suburb_map = {item['suburb_id']: item['suburb_name'] for item in dim_data['suburbs']}
-                selected_filter_labels['Suburbs'] = sorted([suburb_map.get(sid) for sid in suburb_ids if sid in suburb_map])
+                selected_suburbs = sorted([suburb_map.get(sid) for sid in suburb_ids if sid in suburb_map])
+                selected_filter_labels['Suburbs'] = selected_suburbs
+                suburb_color_map = {}
+                for i, name in enumerate(selected_suburbs):
+                    suburb_color_map[name] = get_color_for_string(name, i)
+                    
             if layout_ids:
                 layout_map = {item['layout_id']: item['layout_name'] for item in dim_data['layouts']}
                 selected_filter_labels['Layouts'] = sorted([layout_map.get(lid) for lid in layout_ids if lid in layout_map])
@@ -321,6 +377,9 @@ def compare():
                     results_df = pd.read_sql(text(query_final), connection, params=params)
                     if not results_df.empty:
                         stats_results = results_df.to_dict('records')
+                        # NEW: Add the color to each result dictionary
+                        for result in stats_results:
+                            result['color'] = suburb_color_map.get(result['suburb_name'], '#bdc3c7') # Default grey
 
         except Exception as e:
             flash(f"Error running comparison query: {e}", 'danger')
@@ -332,7 +391,8 @@ def compare():
                            available_layouts=dim_data['layouts'],
                            stats_results=stats_results, # Pass the new, more granular results
                            selected_filters=selected_filters,
-                           selected_filter_labels=selected_filter_labels)
+                           selected_filter_labels=selected_filter_labels,
+                           suburb_color_map=suburb_color_map)
 
 # --- 5. Run the App ---
 if __name__ == '__main__':

@@ -135,7 +135,11 @@ footer {
   background-color: #f8f9fa;
   padding: 1.5em;
   border-radius: 8px;
-  border-left: 5px solid #3498db;
+  border-left: 5px solid #e9ecef;
+  transition: transform 0.2s;
+}
+.summary-box:hover {
+  transform: translateY(-5px);
 }
 
 .summary-box h4 {
@@ -209,8 +213,8 @@ footer {
 .filter-tag {
   display: inline-block;
   padding: 0.5em 1em;
-  background-color: #e0eafc; /* A light blue background */
-  color: #0d47a1; /* A dark blue text color */
+  background-color: #e9ecef;
+  color: #495057; /* A dark blue text color */
   border-radius: 15px; /* Pill shape */
   font-size: 0.9em;
   font-weight: 500;

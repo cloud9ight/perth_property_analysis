@@ -98,13 +98,26 @@
 <div class="current-filters">
   <h4>Active Filters:</h4>
   <div class="filter-tags">
-    <!-- Loop through the dictionary of selected labels -->
-    {% for category, labels in selected_filter_labels.items() %} {% for label in
-    labels %}
-    <span class="filter-tag">
-      <strong>{{ category }}:</strong> {{ label | title }}
+    <!-- Loop for Years -->
+    {% for label in selected_filter_labels.get('Years', []) %}
+    <span class="filter-tag"><strong>Years:</strong> {{ label }}</span>
+    {% endfor %}
+    <!-- Loop for Layouts -->
+    {% for label in selected_filter_labels.get('Layouts', []) %}
+    <span class="filter-tag"
+      ><strong>Layouts:</strong> {{ label | title }}</span
+    >
+    {% endfor %}
+    <!-- Loop for Suburbs with Color! -->
+    {% for label in selected_filter_labels.get('Suburbs', []) %}
+    <!-- Add an inline style to set the background color -->
+    <span
+      class="filter-tag"
+      style="background-color: {{ suburb_color_map.get(label) }}; color: white;"
+    >
+      <strong>Suburbs:</strong> {{ label | title }}
     </span>
-    {% endfor %} {% endfor %}
+    {% endfor %}
   </div>
 </div>
 {% endif %}
@@ -117,14 +130,9 @@
   <div class="summary-grid">
     <!-- Loop through each result, which is a unique (suburb, year) combination -->
     {% for result in stats_results %}
-    <div class="summary-box">
+    <div class="summary-box" style="border-left-color: {{ result.color }};">
       <!-- The title now includes BOTH suburb and year -->
-      <h4>
-        {# We check for each key's existence before displaying it #} {% if
-        result.suburb_name %}{{ result.suburb_name | title }}{% endif %} {% if
-        result.sale_year %} - {{ result.sale_year }}{% endif %} {% if
-        result.layout_name %} - {{ result.layout_name }}{% endif %}
-      </h4>
+      <h4>{{ result.suburb_name | title }} - {{ result.sale_year }}</h4>
       <p><strong>Total Sales:</strong> {{ result.total_sales }}</p>
       <p>
         <strong>Average:</strong> ${{ "{:,.0f}".format(result.avg_price) if
