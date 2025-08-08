@@ -125,14 +125,14 @@ def add_new_record():
 
 @app.route('/explore', methods=['GET', 'POST'])
 def explore():
-    """Handles displaying filters and showing query results."""
+    """Handles displaying filters and showing query results from real db."""
     dim_data = get_dimension_data() # Get data for dropdowns
-    results = []
+    results_list = []
+    stats_summary = None
     selected_filters = {}
 
     if request.method == 'POST':
-        try:
-            
+        try:          
             # Get selected filters from the form
             year = request.form.get('year_select')
             suburb_id = request.form.get('suburb_select')
@@ -142,14 +142,8 @@ def explore():
             selected_filters = {'year': int(year) if year else None, 
                                 'suburb_id': int(suburb_id) if suburb_id else None,
                                 'layout_id': int(layout_id) if layout_id else None}
-
-            # Build the query dynamically
-            base_query = """
-                SELECT p.price, p.date_sold, s.suburb_name, l.layout_name, p.land_size
-                FROM FACT_Properties p
-                JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
-                JOIN DIM_Layouts l ON p.layout_id = l.layout_id
-            """
+            logging.info(f"User submitted filters: {selected_filters}")
+            
             conditions = []
             params = {}
 
@@ -163,25 +157,93 @@ def explore():
                 conditions.append("p.layout_id = :layout_id")
                 params['layout_id'] = layout_id
 
+            where_clause = ""
             if conditions:
-                base_query += " WHERE " + " AND ".join(conditions)
+                where_clause += " WHERE " + " AND ".join(conditions)
+          
+            # Build the query dynamically
+            query_list = f"""
+                SELECT 
+                    p.price AS "Price",
+                    DATE_FORMAT(p.date_sold, '%Y-%m-%d') AS "Date Sold",
+                    s.suburb_name AS "Suburb",
+                    l.layout_name AS "Layout",
+                    p.land_size AS "Land Size (sqm)",
+                    p.address AS "Address"
+                FROM FACT_Properties p
+                JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
+                JOIN DIM_Layouts l ON p.layout_id = l.layout_id
+                {where_clause}
+                ORDER BY p.price DESC LIMIT 100;
+           
+            """
+            # --- 4. Execute Query 2: Get the statistical summary ---
+            # This query finds the min, max, avg, and median prices.
+            # We also find the specific properties that correspond to the min and max prices.
+            query_stats = f"""
+                WITH FilteredProperties AS (
+                    SELECT p.price, p.address, p.date_sold, p.land_size
+                    FROM FACT_Properties p
+                    {where_clause}
+                ),
+                RankedProperties AS (
+                    SELECT 
+                        price,
+                        ROW_NUMBER() OVER (ORDER BY price ASC) as row_num,
+                        (SELECT COUNT(*) FROM FilteredProperties) as total_count
+                    FROM FilteredProperties
+                )
+                SELECT
+
+                    (SELECT price FROM FilteredProperties ORDER BY price ASC LIMIT 1) as min_price,
+                    (SELECT address FROM FilteredProperties ORDER BY price ASC LIMIT 1) as min_price_address,
+                    (SELECT date_sold FROM FilteredProperties ORDER BY price ASC LIMIT 1) as min_price_date,
+                    (SELECT land_size FROM FilteredProperties ORDER BY price ASC LIMIT 1) as min_price_land_size,
+                    
+                    (SELECT price FROM FilteredProperties ORDER BY price DESC LIMIT 1) as max_price,
+                    (SELECT address FROM FilteredProperties ORDER BY price DESC LIMIT 1) as max_price_address,
+                    (SELECT date_sold FROM FilteredProperties ORDER BY price DESC LIMIT 1) as max_price_date,
+                    (SELECT land_size FROM FilteredProperties ORDER BY price DESC LIMIT 1) as max_price_land_size,
+
+                    AVG(price) as avg_price,
+                    COUNT(*) as total_sales,
+
+                    -- Median Calculation using Window Functions
+                    (SELECT AVG(price) FROM RankedProperties 
+                     WHERE row_num IN (FLOOR((total_count + 1) / 2), CEIL((total_count + 1) / 2))) as median_price
+                
+                FROM FilteredProperties;
+            """
             
-            base_query += " ORDER BY p.price DESC LIMIT 100;" # Limit results for performance
+            
 
             with engine.connect() as connection:
-                results_df = pd.read_sql(text(base_query), connection, params=params)
-                results = results_df.to_dict('records')
+                # Execute list query
+                results_df = pd.read_sql(text(query_list), connection, params=params)
+                if not results_df.empty:
+                    results_list = results_df.to_dict('records')
+                    
+                # Execute stats query
+                stats_df = pd.read_sql(text(query_stats), connection, params=params)
+                # If we get a result, convert the single row DataFrame to a dictionary
+                if not stats_df.empty and stats_df.iloc[0]['total_sales'] > 0:
+                    stats_summary = stats_df.iloc[0].to_dict()
+                else:
+                    # If no properties match, we can't show stats.
+                    results_list = [] # Also clear the list if no stats are found.
 
         except Exception as e:
             flash(f"Error running query: {e}", 'danger')
+            logging.error(f"Failed during explore POST request: {e}")
 
     return render_template('explore.html', 
                            available_years=dim_data['available_years'], 
                            available_suburbs=dim_data['suburbs'],
                            available_layouts=dim_data['layouts'],
-                           results=results,
+                           results_list=results_list,
+                           stats_summary=stats_summary,
                            selected_filters=selected_filters)
 
 # --- 5. Run the App ---
 if __name__ == '__main__':
-    app.run(debug=True, port=5001) # Use a different port like 5001 to avoid conflicts
+    app.run(debug=True, port=5001) 
