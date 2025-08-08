@@ -189,6 +189,13 @@ footer {
   min-width: 180px;
 }
 
+.filter-actions {
+  display: flex;
+  gap: 1em;
+  /* This ensures the button group itself aligns to the bottom with other filters */
+  align-self: flex-end;
+}
+
 .current-filters {
   margin-top: 2em;
   padding: 1em;
@@ -222,4 +229,37 @@ footer {
 
 .filter-tag strong {
   color: #1e3a5f; /* Slightly darker for the category name */
+}
+
+#compare-btn {
+  padding: 0.6em 1.3em; /* Increase padding for a larger size */
+  font-size: 1.1em;
+  font-weight: bold;
+  background-color: #0d6efd; /* A more vibrant blue */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+#compare-btn:hover {
+  background-color: #0b5ed7; /* A darker blue on hover */
+}
+
+/* --- Secondary Button: 'Reset Filters' --- */
+#reset-filters-btn {
+  padding: 0.6em 1em;
+  font-size: 1.1em;
+  font-weight: bold;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+#reset-filters-btn:hover {
+  background-color: #5a6268; /* A darker grey on hover */
 }
