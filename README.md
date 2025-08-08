@@ -1,71 +1,86 @@
-# Perth Property Market Analysis & Price Prediction
+# Perth Property Market - Full Stack Data Analysis & BI Web App
 
-## 1. Project Overview
+This repository documents an end-to-end data analysis project, evolving from a raw dataset to a fully interactive Business Intelligence (BI) web application for exploring the Perth real estate market.
 
-This project conducts an end-to-end analysis of the Perth real estate market using a dataset of property listings from Kaggle. The project's core objectives are:
+**Live Application (Example URL):**
+![alt text](image.png)
 
-1.  **Data Engineering:** To design and implement a robust ETL (Extract, Transform, Load) pipeline that cleans raw data and populates a structured, relational MySQL database.
-2.  **Exploratory Data Analysis (EDA):** To uncover key trends, patterns, and insights from the cleaned data through SQL queries and Python-based visualizations.
-3.  **Predictive Modeling:** To build and evaluate a machine learning model capable of predicting property prices based on their features.
+## 1. Project Overview & Objectives
 
-This repository documents the entire workflow, from initial data inspection to the final analysis and modeling.
+This project was conceived as a comprehensive portfolio piece to demonstrate a wide range of data-centric skills, including:
+
+- **Data Engineering:** Designing a robust relational database schema and building an automated ETL pipeline to clean, transform, and load raw data.
+- **Backend Development:** Creating a powerful API and server-side logic using Python and Flask to handle complex, data-driven requests.
+- **Frontend Development:** Building a user-friendly, responsive, and interactive user interface with HTML, CSS, and modern JavaScript to present data insights.
+- **Data Analysis & BI:** Providing users with powerful tools to perform multi-dimensional analysis, compare market segments, and derive actionable insights from the data.
 
 ## 2. Tech Stack
 
-- **Programming Language:** Python
-- **Core Libraries:** Pandas, NumPy, Matplotlib, Seaborn, Scikit-learn
-- **Database:** MySQL
-- **Database Interface:** SQLAlchemy, PyMySQL
-- **Development Environment:** Jupyter Notebook, Git, VS Code, MySQL Workbench
+| Category               | Technology / Library                                            |
+| ---------------------- | --------------------------------------------------------------- |
+| **Programming**        | Python 3.10+                                                    |
+| **Backend**            | Flask                                                           |
+| **Database**           | MySQL                                                           |
+| **DB Interface (ORM)** | SQLAlchemy, PyMySQL                                             |
+| **Data Manipulation**  | Pandas                                                          |
+| **Frontend**           | HTML5, CSS3, JavaScript                                         |
+| **JS Libraries**       | Choices.js (for searchable dropdowns), Google Maps API (Places) |
+| **Development**        | Jupyter Notebook, VS Code, Git, MySQL Workbench                 |
+| **Environment**        | `python-dotenv` for secret management                           |
 
-## 3. Database Schema Design
+## 3. Data Engineering: The ETL Pipeline & Database
 
-A relational **Star Schema** was designed to structure the data for optimal analytical querying and data integrity. This model separates descriptive attributes (Dimensions) from core transactional data (Facts).
+The foundation of this application is a well-structured relational database populated by a reproducible ETL process.
 
-**Final Schema Diagram:**
+### 3.1. Database Schema Design
 
-- **Fact Table:** `FACT_Properties` (Contains core metrics like price, land size, and foreign keys)
+A **Star Schema** was designed and implemented in MySQL. This model separates descriptive attributes (Dimensions) from core transactional data (Facts), ensuring data integrity and optimizing analytical query performance.
+
+- **Fact Table:** `FACT_Properties` (Stores core metrics like price, land size, dates, and foreign keys)
 - **Dimension Tables:**
   - `DIM_Suburbs` (Unique suburbs and postcodes)
   - `DIM_Agencies` (Unique real estate agencies)
-  - `DIM_Layouts` (Unique combinations of bedrooms and bathrooms)
-  - `DIM_Primary_Schools` (Unique primary schools and their ICSEA scores)
-  - `DIM_Secondary_Schools` (Unique secondary schools and their ICSEA scores)
+  - `DIM_Layouts` (Unique combinations of bedrooms & bathrooms)
+  - `DIM_Primary_Schools` & `DIM_Secondary_Schools` (Decoupled school dimensions with ICSEA scores)
 
-This design ensures data consistency, reduces redundancy, and significantly improves query performance for analytical tasks.
+_(The full DDL script is available in `sql/create_tables.sql`.)_
 
-_(The detailed `CREATE TABLE` script can be found in the `sql/create_tables.sql` file.)_
+### 3.2. The ETL (Extract, Transform, Load) Process
 
-## 4. ETL (Extract, Transform, Load) Pipeline
+A Python script, initially prototyped in a Jupyter Notebook, performs the following automated steps:
 
-A comprehensive ETL process was developed in a Jupyter Notebook to populate the MySQL database. This automated workflow is fully reproducible.
+1.  **Extract:** Loads the raw `perth_housing.csv` and a custom `corrections.csv` for auditable manual fixes.
+2.  **Transform:**
+    - **Data Sanitization:** A critical step that standardizes key text fields (e.g., Suburb, Agency) by stripping whitespace and enforcing a consistent lowercase format to prevent data duplication.
+    - **Type Conversion:** Converts date columns to `datetime` objects.
+    - **Feature Engineering:** Creates powerful interaction features like `Layout` ('3b2b') from existing data.
+3.  **Load:** Populates the five `DIM_` tables with unique, sanitized data, then uses the returned primary keys to populate the central `FACT_Properties` table, correctly establishing all relationships.
 
-### 4.1. Extract
+## 4. Full Stack Web Application
 
-- Loaded the raw `perth_housing.csv` dataset into a pandas DataFrame.
-- Loaded a custom `corrections.csv` file to manage rules for manual data fixes.
+The core of this project is an interactive Flask web application that serves as a BI dashboard.
 
-### 4.2. Transform
+### 4.1. Feature: Data Entry (`/add`)
 
-The transformation phase involved several critical steps to ensure data quality:
+A user-friendly form for adding new property records, featuring:
 
-- **Manual Correction:** Programmatically applied fixes from `corrections.csv` to correct known data entry errors or delete invalid rows (e.g., properties with a price of $1).
-- **Data Sanitization:** Standardized key categorical columns (`Agency_Name`, `Primary_School_Name`, `Secondary_School_Name`) by stripping hidden whitespace and converting to a consistent lowercase format. This was a crucial step to prevent `UNIQUE` constraint violations in the database.
-- **Type Conversion:** Converted the `Date_Sold` column to a proper `datetime` object.
-- **Feature Engineering:** Created a powerful `Layout` interaction feature by combining `Bedrooms` and `Bathrooms` (e.g., '3b2b') to capture the property's floor plan.
+- **Address Autocomplete:** Integrates the **Google Maps Places API** to provide real-time address suggestions and auto-fill Suburb and Postcode information, significantly improving user experience and data quality.
+- **Searchable Dropdowns:** Implements **Choices.js** for long lists like Agency and Schools, allowing users to find options by typing.
+- **Robust Validation:** Employs both client-side (HTML5) and server-side (Flask) validation to ensure data integrity (e.g., checking for unique Listing IDs).
+- **Mock Mode:** A toggleable mode that allows testing the form's functionality by saving data to a temporary in-memory list instead of the live database.
 
-### 4.3. Load
+### 4.2. Feature: Multi-Dimensional Comparison (`/compare`)
 
-- The ETL script first executes `sql/create_tables.sql` to drop and recreate all tables, ensuring an idempotent (safely re-runnable) process.
-- Populated all `DIM_` tables with unique, sanitized data.
-- Fetched the auto-generated primary keys from the `DIM_` tables.
-- Merged these foreign keys back into the main dataset.
-- Loaded the final, clean, and fully-related data into the central `FACT_Properties` table.
+The main analytical engine of the application, allowing users to:
 
-## 5. Exploratory Data Analysis (EDA)
+- **Filter by Multiple Dimensions:** Select one or more **Suburbs**, **Years**, and **Layouts** to create highly specific market segments for analysis.
+- **Dynamic Granularity:** The application intelligently aggregates and groups data based on the user's selections. A query for (2 Suburbs x 3 Years) will generate 6 unique summary cards, providing precise, non-aggregated insights.
+- **Dynamic Color-Coding:** A sophisticated algorithm based on the **Golden Ratio** assigns a unique and visually distinct color to each selected suburb. This color is used consistently in filter tags and result cards, dramatically improving data readability.
+- **Clear & Responsive UI:** An "Active Filters" bar provides context for the results, which are displayed in a fully responsive CSS Grid layout that adapts from 4 columns on desktop to a single column on mobile.
 
-_(This section will be filled with insights discovered from querying the database.)_
+## 5. Future Work & Potential Enhancements
 
-## 6. Predictive Modeling
-
-_(This section will be updated after the modeling phase.)_
+- **Interactive Charts:** Replace the static summary cards in the `/compare` view with interactive charts (using Chart.js) to visualize price trends.
+- **Map Integration:** Add a new page that uses the longitude/latitude data and a mapping library (like Leaflet.js or Google Maps) to display properties geographically.
+- **Machine Learning Model:** Build, train, and integrate a price prediction model (e.g., RandomForest, XGBoost) and create a `/predict` page where users can get an estimated value for a new property.
+- **Deployment:** Deploy the final application to a cloud service like Heroku or AWS.
