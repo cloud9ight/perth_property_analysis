@@ -1,97 +1,163 @@
-{% extends "base.html" %}
-
-{% block title %}Compare Suburb Markets{% endblock %}
-
+{% extends "base.html" %} {% block title %}Compare Suburb Markets{% endblock %}
 {% block content %}
-    <h2>Compare Perth Suburb Markets</h2>
-    <p>Select two or more suburbs to see a side-by-side comparison of their market overview. You can apply additional filters for year and layout.</p>
+<h2>Compare Perth Suburb Markets</h2>
+<p>
+  Select one or more suburbs to see a side-by-side comparison. You can apply
+  additional filters for year(s) and layout(s).
+</p>
 
-    <!-- Filter Form -->
-    <div class="filter-container">
-        <form class="filter-form" action="{{ url_for('compare') }}" method="post">
-            
-            <div class="filter-group">
-                <label for="year_select">Year:</label>
-                <select id="year_select" name="year_select">
-                    <option value="">-- All Years --</option>
-                    {% for year in available_years %}
-                        <option value="{{ year }}" {% if year == selected_filters.year %}selected{% endif %}>{{ year }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label for="suburb_select">Suburb(s):</label>
-                <select id="suburb_select" name="suburb_select" class="multi-searchable-select" multiple required>
-                    <!-- No default option needed for multi-select with Choices.js -->
-                    {% for suburb in available_suburbs %}
-                         <option value="{{ suburb.suburb_id }}" 
-                                 {% if suburb.suburb_id in selected_filters.suburb_ids %}selected{% endif %}>
-                            {{ suburb.suburb_name | title }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label for="layout_select">Layout:</label>
-                <select id="layout_select" name="layout_select" >
-                    <option value="">-- All Layouts --</option>
-                    {% for layout in available_layouts %}
-                        <option value="{{ layout.layout_id }}" {% if layout.layout_id == selected_filters.layout_id %}selected{% endif %}>
-                            {{ layout.layout_name }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <button type="submit">Compare Suburbs</button>
-        </form>
+<!-- Filter Form -->
+<div class="filter-container">
+  <form class="filter-form" action="{{ url_for('compare') }}" method="post">
+    <div class="filter-group">
+      <label for="year_select">Year(s):</label>
+      <select
+        id="year_select"
+        name="year_select"
+        class="multi-searchable-select"
+        multiple
+      >
+        {% for year in available_years %}
+        <!-- Use 'in' operator to check for selection in a list -->
+        <option
+          value="{{ year }}"
+          {%
+          if
+          year
+          in
+          selected_filters.years
+          %}selected{%
+          endif
+          %}
+        >
+          {{ year }}
+        </option>
+        {% endfor %}
+      </select>
     </div>
 
-    <hr style="margin: 2em 0;">
-
-    <!-- Results Section for Comparison -->
-    <div class="comparison-results">
-        <h3>Comparison Summary</h3>
-        {% if stats_summaries %}
-            <div class="summary-grid">
-                {% for summary in stats_summaries %}
-                    <div class="summary-box">
-                        <h4>{{ summary.suburb_name | title }}</h4> 
-                        <p><strong>Total Sales Found:</strong> {{ summary.total_sales }}</p>
-                        <p><strong>Average Price:</strong> ${{ "{:,.0f}".format(summary.avg_price) if summary.avg_price else 'N/A' }}</p>
-                        <p><strong>Median Price:</strong> ${{ "{:,.0f}".format(summary.median_price) if summary.median_price else 'N/A' }}</p>
-                    </div>
-                {% endfor %}
-            </div>
-        {% elif request.method == 'POST' %}
-            <p>No data found for the selected criteria. Please try a different selection.</p>
-        {% else %}
-            <p>Please select the suburbs you wish to compare and click the button.</p>
-        {% endif %}
+    <div class="filter-group">
+      <label for="suburb_select">Suburb(s):</label>
+      <select
+        id="suburb_select"
+        name="suburb_select"
+        class="multi-searchable-select"
+        multiple
+      >
+        {% for suburb in available_suburbs %}
+        <option
+          value="{{ suburb.suburb_id }}"
+          {%
+          if
+          suburb.suburb_id
+          in
+          selected_filters.suburb_ids
+          %}selected{%
+          endif
+          %}
+        >
+          {{ suburb.suburb_name | title }}
+        </option>
+        {% endfor %}
+      </select>
     </div>
 
-{% endblock %}
+    <div class="filter-group">
+      <label for="layout_select">Layout(s):</label>
+      <select
+        id="layout_select"
+        name="layout_select"
+        class="multi-searchable-select"
+        multiple
+      >
+        {% for layout in available_layouts %}
+        <option
+          value="{{ layout.layout_id }}"
+          {%
+          if
+          layout.layout_id
+          in
+          selected_filters.layout_ids
+          %}selected{%
+          endif
+          %}
+        >
+          {{ layout.layout_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
 
+    <button type="submit">Compare Selections</button>
+  </form>
+</div>
 
-{% block scripts %}
+<!-- Current Filters Display Section -->
+<!-- This section only appears if any filters have been selected and submitted -->
+{% if selected_filter_labels %}
+<div class="current-filters">
+  <h4>Active Filters:</h4>
+  <div class="filter-tags">
+    <!-- Loop through the dictionary of selected labels -->
+    {% for category, labels in selected_filter_labels.items() %} {% for label in
+    labels %}
+    <span class="filter-tag">
+      <strong>{{ category }}:</strong> {{ label | title }}
+    </span>
+    {% endfor %} {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Results Section for Comparison -->
+<div class="comparison-results">
+  <h3>Comparison Summary</h3>
+  <!-- This section is only shown if there are results from the backend -->
+  {% if stats_summaries %}
+  <div class="summary-grid">
+    <!-- Loop through each summary dictionary in the list -->
+    {% for summary in stats_summaries %}
+    <div class="summary-box">
+      <h4>{{ summary.suburb_name | title }}</h4>
+      <p><strong>Total Sales Found:</strong> {{ summary.total_sales }}</p>
+      <p>
+        <strong>Average Price:</strong> ${{ "{:,.0f}".format(summary.avg_price)
+        if summary.avg_price else 'N/A' }}
+      </p>
+      <p>
+        <strong>Median Price:</strong> ${{
+        "{:,.0f}".format(summary.median_price) if summary.median_price else
+        'N/A' }}
+      </p>
+    </div>
+    {% endfor %}
+  </div>
+  {% elif request.method == 'POST' %}
+  <!-- This message shows if a query was run but found no results -->
+  <p>
+    No data found for the selected criteria. Please try a different selection.
+  </p>
+  {% else %}
+  <!-- This message shows on the initial page load -->
+  <p>Please select the suburbs you wish to compare and click the button.</p>
+  {% endif %}
+</div>
+
+{% endblock %} {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // --- Initialize Choices.js ONLY for the multi-select suburb dropdown ---
-        const multiSelect = document.getElementById('suburb_select');
-        
-        if (multiSelect) {
-            console.log("Initializing Choices.js for Suburb multi-select.");
-            new Choices(multiSelect, {
-                removeItemButton: true,
-                searchPlaceholderValue: "Type to search suburbs...",
-                placeholder: true,
-                placeholderValue: 'Select one or more suburbs...'
-            });
-        } else {
-            console.error("Could not find the suburb multi-select element.");
-        }
+  document.addEventListener("DOMContentLoaded", function () {
+    // Initialize Choices.js for all multi-select dropdowns
+    const multiSelects = document.querySelectorAll(".multi-searchable-select");
+
+    multiSelects.forEach(function (element) {
+      new Choices(element, {
+        removeItemButton: true,
+        searchPlaceholderValue: "Type to search...",
+        placeholder: true,
+        // A trick to create a dynamic placeholder based on the element's ID
+        placeholderValue: `Select ${element.id.split("_")[0]}(s)...`,
+      });
     });
+  });
 </script>
 {% endblock %}

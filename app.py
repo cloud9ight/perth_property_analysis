@@ -246,66 +246,74 @@ def explore():
     
 @app.route('/compare', methods=['GET', 'POST'])
 def compare():
-    """
-    Handles the multi-suburb comparison page with a MySQL-compatible median calculation.
-    """
     dim_data = get_dimension_data()
     stats_summaries = []
-    selected_filters = {}
+    selected_filters = {'years': [], 'suburb_ids': [], 'layout_ids': []}
+    selected_filter_labels = {}
 
     if request.method == 'POST':
         try:
-            year = request.form.get('year_select')
+            years = request.form.getlist('year_select', type=int)
             suburb_ids = request.form.getlist('suburb_select', type=int)
-            layout_id = request.form.get('layout_select')
+            layout_ids = request.form.getlist('layout_select', type=int)
             
-            selected_filters = {
-                'year': int(year) if year else None, 
-                'suburb_ids': suburb_ids,
-                'layout_id': int(layout_id) if layout_id else None
-            }
-            logging.info(f"User submitted filters for comparison: {selected_filters}")
+            selected_filters = {'years': years, 'suburb_ids': suburb_ids, 'layout_ids': layout_ids}
+            
+            # Convert selected IDs to labels for display
+            if years: selected_filter_labels['Years'] = sorted(years)
+            if suburb_ids:
+                suburb_map = {item['suburb_id']: item['suburb_name'] for item in dim_data['suburbs']}
+                selected_filter_labels['Suburbs'] = sorted([suburb_map.get(sid) for sid in suburb_ids if sid in suburb_map])
+            if layout_ids:
+                layout_map = {item['layout_id']: item['layout_name'] for item in dim_data['layouts']}
+                selected_filter_labels['Layouts'] = sorted([layout_map.get(lid) for lid in layout_ids if lid in layout_map])
 
             if not suburb_ids:
-                flash("Please select at least one suburb for comparison.", 'danger')
+                flash("Please select at least one Suburb for comparison.", 'danger')
             else:
                 with engine.connect() as connection:
                     for suburb_id in suburb_ids:
+                        # ======================================================================
+                        # ▼▼▼ THE CRITICAL FIX: Dynamically choosing between '=' and 'IN' ▼▼▼
+                        # ======================================================================
                         conditions = ["p.suburb_id = :suburb_id"]
                         params = {'suburb_id': suburb_id}
-                        if year: conditions.append("YEAR(p.date_sold) = :year"); params['year'] = year
-                        if layout_id: conditions.append("p.layout_id = :layout_id"); params['layout_id'] = layout_id
+                        
+                        # For YEARS filter
+                        if len(years) == 1:
+                            conditions.append("YEAR(p.date_sold) = :year")
+                            params['year'] = years[0]
+                        elif len(years) > 1:
+                            conditions.append("YEAR(p.date_sold) IN :years")
+                            params['years'] = tuple(years)
+                            
+                        # For LAYOUTS filter
+                        if len(layout_ids) == 1:
+                            conditions.append("p.layout_id = :layout_id")
+                            params['layout_id'] = layout_ids[0]
+                        elif len(layout_ids) > 1:
+                            conditions.append("p.layout_id IN :layout_ids")
+                            params['layout_ids'] = tuple(layout_ids)
+                        # ======================================================================
+                        
                         where_clause = "WHERE " + " AND ".join(conditions)
                         
-                        # ======================================================================
-                        # ▼▼▼ THIS IS THE CRITICAL FIX: The MySQL-compatible query ▼▼▼
-                        # ======================================================================
+                        # The MySQL-compatible stats query
                         query_stats_simple = f"""
-                            WITH FilteredProperties AS (
-                                SELECT p.price
-                                FROM FACT_Properties p
-                                {where_clause}
-                            ),
+                            WITH FilteredProperties AS (SELECT p.price FROM FACT_Properties p {where_clause}),
                             RankedProperties AS (
-                                SELECT 
-                                    price,
-                                    ROW_NUMBER() OVER (ORDER BY price ASC) as row_num,
-                                    (SELECT COUNT(*) FROM FilteredProperties) as total_count
-                                FROM FilteredProperties
+                                SELECT price, ROW_NUMBER() OVER (ORDER BY price ASC) as row_num,
+                                       (SELECT COUNT(*) FROM FilteredProperties) as total_count FROM FilteredProperties
                             )
                             SELECT
                                 (SELECT s.suburb_name FROM DIM_Suburbs s WHERE s.suburb_id = :suburb_id) as suburb_name,
                                 (SELECT COUNT(*) FROM FilteredProperties) as total_sales,
                                 (SELECT AVG(price) FROM FilteredProperties) as avg_price,
-                                -- The robust median calculation using window functions
                                 (SELECT AVG(price) FROM RankedProperties 
                                  WHERE row_num IN (FLOOR((total_count + 1) / 2), CEIL((total_count + 1) / 2))) as median_price
                         """
-                        # ======================================================================
                         
                         stats_df = pd.read_sql(text(query_stats_simple), connection, params=params)
-                        
-                        # We must check if total_sales is not None and > 0 before appending
                         if not stats_df.empty and stats_df.iloc[0]['total_sales'] and stats_df.iloc[0]['total_sales'] > 0:
                             stats_summaries.append(stats_df.iloc[0].to_dict())
 
@@ -318,7 +326,8 @@ def compare():
                            available_suburbs=dim_data['suburbs'],
                            available_layouts=dim_data['layouts'],
                            stats_summaries=stats_summaries,
-                           selected_filters=selected_filters)
+                           selected_filters=selected_filters,
+                           selected_filter_labels=selected_filter_labels)
 
 # --- 5. Run the App ---
 if __name__ == '__main__':
