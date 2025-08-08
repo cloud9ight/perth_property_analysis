@@ -246,8 +246,13 @@ def explore():
     
 @app.route('/compare', methods=['GET', 'POST'])
 def compare():
+    """
+    Handles multi-dimensional comparison. 
+    Fetches stats for each selected suburb for each selected year in a single query.
+    """
     dim_data = get_dimension_data()
-    stats_summaries = []
+
+    stats_results = []
     selected_filters = {'years': [], 'suburb_ids': [], 'layout_ids': []}
     selected_filter_labels = {}
 
@@ -259,7 +264,7 @@ def compare():
             
             selected_filters = {'years': years, 'suburb_ids': suburb_ids, 'layout_ids': layout_ids}
             
-            # Convert selected IDs to labels for display
+            # --- Convert selected IDs to labels for display (no changes here) ---
             if years: selected_filter_labels['Years'] = sorted(years)
             if suburb_ids:
                 suburb_map = {item['suburb_id']: item['suburb_name'] for item in dim_data['suburbs']}
@@ -268,54 +273,37 @@ def compare():
                 layout_map = {item['layout_id']: item['layout_name'] for item in dim_data['layouts']}
                 selected_filter_labels['Layouts'] = sorted([layout_map.get(lid) for lid in layout_ids if lid in layout_map])
 
-            if not suburb_ids:
-                flash("Please select at least one Suburb for comparison.", 'danger')
+            # --- Validation ---
+            if not suburb_ids and not years and not layout_ids:
+                flash("Please select at least one filter.", 'danger')
             else:
+                # --- Build ONE powerful query ---
+                conditions = []
+                params = {}
+                if suburb_ids: conditions.append("p.suburb_id IN :suburb_ids"); params['suburb_ids'] = tuple(suburb_ids)
+                if years: conditions.append("YEAR(p.date_sold) IN :years"); params['years'] = tuple(years)
+                if layout_ids: conditions.append("p.layout_id IN :layout_ids"); params['layout_ids'] = tuple(layout_ids)
+                
+                where_clause = "WHERE " + " AND ".join(conditions)
+                
+                # The final, powerful query with GROUP BY on both suburb and year
+                query_final = f"""
+                    SELECT
+                        s.suburb_name,
+                        YEAR(p.date_sold) AS sale_year,
+                        COUNT(*) AS total_sales,
+                        AVG(p.price) AS avg_price
+                    FROM FACT_Properties p
+                    JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
+                    {where_clause}
+                    GROUP BY s.suburb_name, sale_year
+                    ORDER BY s.suburb_name, sale_year;
+                """
+
                 with engine.connect() as connection:
-                    for suburb_id in suburb_ids:
-                        # ======================================================================
-                        # ▼▼▼ THE CRITICAL FIX: Dynamically choosing between '=' and 'IN' ▼▼▼
-                        # ======================================================================
-                        conditions = ["p.suburb_id = :suburb_id"]
-                        params = {'suburb_id': suburb_id}
-                        
-                        # For YEARS filter
-                        if len(years) == 1:
-                            conditions.append("YEAR(p.date_sold) = :year")
-                            params['year'] = years[0]
-                        elif len(years) > 1:
-                            conditions.append("YEAR(p.date_sold) IN :years")
-                            params['years'] = tuple(years)
-                            
-                        # For LAYOUTS filter
-                        if len(layout_ids) == 1:
-                            conditions.append("p.layout_id = :layout_id")
-                            params['layout_id'] = layout_ids[0]
-                        elif len(layout_ids) > 1:
-                            conditions.append("p.layout_id IN :layout_ids")
-                            params['layout_ids'] = tuple(layout_ids)
-                        # ======================================================================
-                        
-                        where_clause = "WHERE " + " AND ".join(conditions)
-                        
-                        # The MySQL-compatible stats query
-                        query_stats_simple = f"""
-                            WITH FilteredProperties AS (SELECT p.price FROM FACT_Properties p {where_clause}),
-                            RankedProperties AS (
-                                SELECT price, ROW_NUMBER() OVER (ORDER BY price ASC) as row_num,
-                                       (SELECT COUNT(*) FROM FilteredProperties) as total_count FROM FilteredProperties
-                            )
-                            SELECT
-                                (SELECT s.suburb_name FROM DIM_Suburbs s WHERE s.suburb_id = :suburb_id) as suburb_name,
-                                (SELECT COUNT(*) FROM FilteredProperties) as total_sales,
-                                (SELECT AVG(price) FROM FilteredProperties) as avg_price,
-                                (SELECT AVG(price) FROM RankedProperties 
-                                 WHERE row_num IN (FLOOR((total_count + 1) / 2), CEIL((total_count + 1) / 2))) as median_price
-                        """
-                        
-                        stats_df = pd.read_sql(text(query_stats_simple), connection, params=params)
-                        if not stats_df.empty and stats_df.iloc[0]['total_sales'] and stats_df.iloc[0]['total_sales'] > 0:
-                            stats_summaries.append(stats_df.iloc[0].to_dict())
+                    results_df = pd.read_sql(text(query_final), connection, params=params)
+                    if not results_df.empty:
+                        stats_results = results_df.to_dict('records')
 
         except Exception as e:
             flash(f"Error running comparison query: {e}", 'danger')
@@ -325,7 +313,7 @@ def compare():
                            available_years=dim_data['available_years'],
                            available_suburbs=dim_data['suburbs'],
                            available_layouts=dim_data['layouts'],
-                           stats_summaries=stats_summaries,
+                           stats_results=stats_results, # Pass the new, more granular results
                            selected_filters=selected_filters,
                            selected_filter_labels=selected_filter_labels)
 

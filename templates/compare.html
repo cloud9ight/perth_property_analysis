@@ -112,34 +112,30 @@
 <!-- Results Section for Comparison -->
 <div class="comparison-results">
   <h3>Comparison Summary</h3>
-  <!-- This section is only shown if there are results from the backend -->
-  {% if stats_summaries %}
+
+  <!-- We now check 'stats_results' -->
+  {% if stats_results %}
   <div class="summary-grid">
-    <!-- Loop through each summary dictionary in the list -->
-    {% for summary in stats_summaries %}
+    <!-- Loop through each result, which is a unique (suburb, year) combination -->
+    {% for result in stats_results %}
     <div class="summary-box">
-      <h4>{{ summary.suburb_name | title }}</h4>
-      <p><strong>Total Sales Found:</strong> {{ summary.total_sales }}</p>
+      <!-- The title now includes BOTH suburb and year -->
+      <h4>{{ result.suburb_name | title }} - {{ result.sale_year }}</h4>
+      <p><strong>Total Sales:</strong> {{ result.total_sales }}</p>
       <p>
-        <strong>Average Price:</strong> ${{ "{:,.0f}".format(summary.avg_price)
-        if summary.avg_price else 'N/A' }}
+        <strong>Average:</strong> ${{ "{:,.0f}".format(result.avg_price) if
+        result.avg_price else 'N/A' }}
       </p>
-      <p>
-        <strong>Median Price:</strong> ${{
-        "{:,.0f}".format(summary.median_price) if summary.median_price else
-        'N/A' }}
-      </p>
+      <!-- Note: Median is removed for now as it makes the single query much more complex. We can add it back later if needed. -->
     </div>
     {% endfor %}
   </div>
   {% elif request.method == 'POST' %}
-  <!-- This message shows if a query was run but found no results -->
   <p>
     No data found for the selected criteria. Please try a different selection.
   </p>
   {% else %}
-  <!-- This message shows on the initial page load -->
-  <p>Please select the suburbs you wish to compare and click the button.</p>
+  <p>Please select filters to generate a comparison.</p>
   {% endif %}
 </div>
 
