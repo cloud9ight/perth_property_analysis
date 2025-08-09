@@ -223,3 +223,12 @@ footer {
 .filter-tag strong {
   color: #1e3a5f; /* Slightly darker for the category name */
 }
+
+.filter-group-radio {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+.filter-group-radio label {
+  font-weight: normal; /* Make radio labels less bold */
+}
