@@ -46,6 +46,7 @@ def get_dimension_data():
         with engine.connect() as connection:
             suburbs = pd.read_sql("SELECT suburb_id, suburb_name FROM DIM_Suburbs ORDER BY suburb_name", connection).to_dict('records')
             layouts = pd.read_sql("SELECT layout_id, layout_name FROM DIM_Layouts ORDER BY layout_name", connection).to_dict('records')
+            property_types = pd.read_sql("SELECT DISTINCT property_type FROM FACT_Properties WHERE property_type IS NOT NULL ORDER BY property_type", connection)['property_type'].tolist()
             agencies = pd.read_sql("SELECT agency_id, agency_name FROM DIM_Agencies ORDER BY agency_name", connection).to_dict('records')
             primary_schools = pd.read_sql("SELECT primary_school_id, primary_school_name FROM DIM_Primary_Schools ORDER BY primary_school_name", connection).to_dict('records')
             secondary_schools = pd.read_sql("SELECT secondary_school_id, secondary_school_name FROM DIM_Secondary_Schools ORDER BY secondary_school_name", connection).to_dict('records')
@@ -55,11 +56,12 @@ def get_dimension_data():
             'suburbs': suburbs, 'layouts': layouts, 'agencies': agencies,
             'primary_schools': primary_schools, 'secondary_schools': secondary_schools,
             'available_years': years,
-            'postcodes': postcodes
+            'postcodes': postcodes,
+            'property_types': property_types
         }
     except Exception as e:
         logging.error(f"Failed to fetch dimension data: {e}")
-        return {key: [] for key in ['suburbs', 'layouts', 'agencies', 'primary_schools', 'secondary_schools', 'available_years', 'postcodes']}
+        return {key: [] for key in ['suburbs', 'layouts', 'agencies', 'primary_schools', 'secondary_schools', 'available_years', 'postcodes', 'property_types']}
     
     
 # COLOR_PALETTE = [
@@ -403,8 +405,9 @@ def trend():
     """
     dim_data = get_dimension_data()
     chart_data = None
-    selected_filters = {}
     chart_title = "Price Trend"
+    # Initialize all possible filter keys
+    selected_filters = {'filter_by': 'suburb'} # Default selection
 
     if request.method == 'POST':
         try:
@@ -412,6 +415,7 @@ def trend():
             filter_by = request.form.get('filter_by') # This will be 'suburb' or 'postcode'
             suburb_id = request.form.get('suburb_id')
             postcode = request.form.get('postcode')
+            property_type = request.form.get('property_type')
             layout_id = request.form.get('layout_id')
             start_date = request.form.get('start_date')
             end_date = request.form.get('end_date')
@@ -420,6 +424,7 @@ def trend():
                 'filter_by': filter_by,
                 'suburb_id': int(suburb_id) if suburb_id else None,
                 'postcode': int(postcode) if postcode else None,
+                'property_type': property_type,
                 'layout_id': int(layout_id) if layout_id else None,
                 'start_date': start_date,
                 'end_date': end_date
@@ -445,6 +450,11 @@ def trend():
                 conditions.append("s.postcode = :postcode")
                 params['postcode'] = postcode
                 title_parts.append(f"Postcode {postcode}")
+                
+            if property_type:
+                conditions.append("p.property_type = :property_type")
+                params['property_type'] = property_type
+                title_parts.append(property_type.title())
             
             # Add other optional filters
             if layout_id:
@@ -479,6 +489,7 @@ def trend():
                            suburbs=dim_data['suburbs'], 
                            layouts=dim_data['layouts'],
                            postcodes=dim_data['postcodes'], # Pass postcodes to the template
+                           property_types=dim_data['property_types'],
                            chart_data=chart_data,
                            chart_title=chart_title,
                            selected_filters=selected_filters)

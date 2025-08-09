@@ -4,19 +4,21 @@
 
 {% block content %}
     <h2>Price Trend Analysis</h2>
-    <p>Analyze price trends over time. Choose to filter by a single Suburb or an entire Postcode for a broader view.</p>
+    <p>Analyse price trends over time. Choose to filter by a single Suburb or an entire Postcode for a broader view.</p>
 
     <div class="filter-container">
         <form class="filter-form" action="{{ url_for('trend') }}" method="post">
             
             <div class="filter-group-radio">
-                <label>Filter By:</label>
+                <label ><strong>Filter By:</strong></label>
+                <div class="radio-options">
                 <input type="radio" id="filter_by_suburb" name="filter_by" value="suburb" 
                        {% if not selected_filters.filter_by or selected_filters.filter_by == 'suburb' %}checked{% endif %}>
                 <label for="filter_by_suburb">Suburb</label>
                 <input type="radio" id="filter_by_postcode" name="filter_by" value="postcode"
                        {% if selected_filters.filter_by == 'postcode' %}checked{% endif %}>
                 <label for="filter_by_postcode">Postcode</label>
+                </div>
             </div>
 
             <div class="filter-group" id="suburb-filter-group">
@@ -38,6 +40,21 @@
                     {% for pc in postcodes %}
                         <option value="{{ pc }}" {% if pc == selected_filters.postcode %}selected{% endif %}>{{ pc }}</option>
                     {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="property_type">Property Type:</label>
+               
+                <select id="property_type" name="property_type">
+                  <option value="">-- All Types --</option>
+                  <!-- Loop through the list passed from the backend -->
+                 {% for p_type in property_types %}
+                      <option value="{{ p_type }}" {% if p_type == selected_filters.property_type %}selected{% endif %}>
+                <!-- Use the | title filter to make it look nice, e.g., "duplex-semi-d..." -> "Duplex-Semi-D..." -->
+                       {{ p_type.replace('-', ' ') | title }}
+            </option>
+        {% endfor %}
                 </select>
             </div>
 
@@ -67,6 +84,10 @@
     </div>
 
     <hr style="margin: 2em 0;">
+
+    <div class="disclaimer-box">
+        <p><strong>Data Context & Limitations:</strong> The statistics and trends presented are based on available sales data and are intended for general market reference only. Price fluctuations may be influenced by factors not captured in this dataset, such as property condition, specific location attributes, and small sample sizes in certain time periods or areas. For investment or other business decisions, a more detailed, case-specific analysis is strongly recommended.</p>
+    </div>
 
     <div class="results">
         {% if chart_data %}

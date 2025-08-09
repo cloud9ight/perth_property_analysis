@@ -230,5 +230,35 @@ footer {
   gap: 0.5em;
 }
 .filter-group-radio label {
-  font-weight: normal; /* Make radio labels less bold */
+  font-weight: normal;
+}
+
+.disclaimer-box {
+  background-color: #f8f9fa;
+  border-left: 5px solid #6c757d;
+  padding: 1em 1.5em;
+  margin-bottom: 2em;
+  border-radius: 5px;
+}
+
+.disclaimer-box p {
+  margin: 0;
+  font-size: 0.9em;
+  color: #495057;
+  line-height: 1.6;
+}
+
+.disclaimer-box p strong {
+  color: #212529;
+}
+.radio-options {
+  display: flex;
+  align-items: center;
+  gap: 0.5em 1em;
+  padding: 0.8em 0;
+  font-weight: bold;
+}
+
+.radio-options label {
+  font-weight: normal;
 }
