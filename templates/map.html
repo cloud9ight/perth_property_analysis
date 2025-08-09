@@ -8,7 +8,6 @@ content %}
   performing a search on the 'Compare' page first. {% endif %}
 </p>
 
-<!-- This is the container where the map will be rendered -->
 <div
   id="map"
   style="
@@ -19,60 +18,39 @@ content %}
   "
 ></div>
 {% endblock %} {% block scripts %}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+<!-- ▼▼▼  MarkerCluster CSS ▼▼▼ -->
+<!-- ====================================================================== -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"
+/>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"
+/>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+<!-- Step 1: The "Data Bridge" -->
+<!-- This script block runs first. It creates a global JavaScript variable 
+     named 'propertyData' and fills it with the data from our Flask backend. -->
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-      // --- 1. Initialize the Map ---
-      // Set the map's center to Perth and choose a zoom level.
-      const map = L.map('map').setView([-31.9523, 115.8605], 11);
-
-      // --- 2. Add the Tile Layer (the map background) ---
-      // We're using OpenStreetMap, a free and open map provider.
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      }).addTo(map);
-
-      // --- 3. Get the property data from our Flask backend ---
-      // The 'tojson' filter safely converts the Python list to a JavaScript array.
-      const properties = {{ properties_for_map | tojson | safe }};
-
-      // --- 4. Add Markers for Each Property ---
-      if (properties && properties.length > 0) {
-          console.log(`Adding ${properties.length} markers to the map.`);
-
-          // Create a feature group to hold all markers, which helps in fitting them to the view.
-          const markerGroup = L.featureGroup();
-
-          properties.forEach(function(prop) {
-              // Check if latitude and longitude are valid numbers.
-              if (typeof prop.latitude === 'number' && typeof prop.longitude === 'number') {
-                  // Create a marker at the property's coordinates.
-                  const marker = L.marker([prop.latitude, prop.longitude]);
-
-                  // Create the popup content with basic property info.
-                  const popupContent = `
-                      <b>${prop.address}</b><br>
-                      ${prop.suburb_name}<br>
-                      Price: $${new Intl.NumberFormat().format(prop.price)}
-                  `;
-
-                  // Bind the popup to the marker.
-                  marker.bindPopup(popupContent);
-
-                  // Add the marker to our group.
-                  markerGroup.addLayer(marker);
-              }
-          });
-
-          // Add the entire group of markers to the map.
-          markerGroup.addTo(map);
-
-          // --- 5. Fit the Map to the Markers ---
-          // This automatically adjusts the map's zoom and center to show all markers.
-          if (markerGroup.getLayers().length > 0) {
-               map.fitBounds(markerGroup.getBounds().pad(0.1));
-          }
-      }
-  });
+  const propertyData = {{ properties_for_map | tojson | safe }};
 </script>
+
+<!-- Step 2: Load our external map logic -->
+<!-- This script runs second. It will find and use the 'propertyData' variable
+     that we just created above. We add a version number to prevent caching issues. -->
+<script src="{{ url_for('static', filename='map.js') }}?v=1.0"></script>
+
 {% endblock %}

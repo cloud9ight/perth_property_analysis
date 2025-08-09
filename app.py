@@ -502,14 +502,25 @@ def show_map():
     """
     # Get the list of listing IDs from the URL query parameter, if it exists
     listing_ids_str = request.args.get('ids', '')
-    
     properties_for_map = []
     
     # Base query to fetch data needed for the map
     query = """
-        SELECT listing_id, price, address, latitude, longitude, s.suburb_name
+        SELECT 
+            p.listing_id, 
+            p.price, 
+            p.address, 
+            DATE_FORMAT(p.date_sold, '%Y-%m-%d') AS date_sold, -- Format the date
+            p.latitude, 
+            p.longitude, 
+            s.suburb_name,
+            p.land_size,
+            p.property_type,
+            l.layout_name,
+            s.postcode
         FROM FACT_Properties p
         JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
+        JOIN DIM_Layouts l ON p.layout_id = l.layout_id
     """
     params = {}
 
@@ -521,10 +532,11 @@ def show_map():
             params['listing_ids'] = tuple(listing_ids)
         except ValueError:
             flash("Invalid listing IDs provided for the map.", "danger")
-            # Fall back to the default view if IDs are invalid
+            listing_ids_str = '' # Reset to default if error
+            
     else:
         # Default view: Show a random sample of 500 properties if no IDs are given
-        query += " ORDER BY RAND() LIMIT 500"
+        query += " ORDER BY RAND() LIMIT 1000"
 
     try:
         with engine.connect() as connection:
