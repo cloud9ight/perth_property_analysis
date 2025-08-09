@@ -46,18 +46,22 @@ def get_dimension_data():
         with engine.connect() as connection:
             suburbs = pd.read_sql("SELECT suburb_id, suburb_name FROM DIM_Suburbs ORDER BY suburb_name", connection).to_dict('records')
             layouts = pd.read_sql("SELECT layout_id, layout_name FROM DIM_Layouts ORDER BY layout_name", connection).to_dict('records')
+            property_types = pd.read_sql("SELECT DISTINCT property_type FROM FACT_Properties WHERE property_type IS NOT NULL ORDER BY property_type", connection)['property_type'].tolist()
             agencies = pd.read_sql("SELECT agency_id, agency_name FROM DIM_Agencies ORDER BY agency_name", connection).to_dict('records')
             primary_schools = pd.read_sql("SELECT primary_school_id, primary_school_name FROM DIM_Primary_Schools ORDER BY primary_school_name", connection).to_dict('records')
             secondary_schools = pd.read_sql("SELECT secondary_school_id, secondary_school_name FROM DIM_Secondary_Schools ORDER BY secondary_school_name", connection).to_dict('records')
             years = pd.read_sql("SELECT DISTINCT YEAR(date_sold) as year FROM FACT_Properties ORDER BY year DESC", connection)['year'].tolist()
+            postcodes = pd.read_sql("SELECT DISTINCT postcode FROM DIM_Suburbs ORDER BY postcode", connection)['postcode'].tolist()
         return {
             'suburbs': suburbs, 'layouts': layouts, 'agencies': agencies,
             'primary_schools': primary_schools, 'secondary_schools': secondary_schools,
-            'available_years': years
+            'available_years': years,
+            'postcodes': postcodes,
+            'property_types': property_types
         }
     except Exception as e:
         logging.error(f"Failed to fetch dimension data: {e}")
-        return {key: [] for key in ['suburbs', 'layouts', 'agencies', 'primary_schools', 'secondary_schools', 'available_years']}
+        return {key: [] for key in ['suburbs', 'layouts', 'agencies', 'primary_schools', 'secondary_schools', 'available_years', 'postcodes', 'property_types']}
     
     
 # COLOR_PALETTE = [
@@ -394,6 +398,101 @@ def compare():
                            selected_filter_labels=selected_filter_labels,
                            suburb_color_map=suburb_color_map)
 
+@app.route('/trend', methods=['GET', 'POST'])
+def trend():
+    """
+    Handles trend analysis, allowing users to filter by EITHER Suburb OR Postcode.
+    """
+    dim_data = get_dimension_data()
+    chart_data = None
+    chart_title = "Price Trend"
+    # Initialize all possible filter keys
+    selected_filters = {'filter_by': 'suburb'} # Default selection
+
+    if request.method == 'POST':
+        try:
+            # --- 1. Get filter choices, including the new filter_by mode ---
+            filter_by = request.form.get('filter_by') # This will be 'suburb' or 'postcode'
+            suburb_id = request.form.get('suburb_id')
+            postcode = request.form.get('postcode')
+            property_type = request.form.get('property_type')
+            layout_id = request.form.get('layout_id')
+            start_date = request.form.get('start_date')
+            end_date = request.form.get('end_date')
+            
+            selected_filters = {
+                'filter_by': filter_by,
+                'suburb_id': int(suburb_id) if suburb_id else None,
+                'postcode': int(postcode) if postcode else None,
+                'property_type': property_type,
+                'layout_id': int(layout_id) if layout_id else None,
+                'start_date': start_date,
+                'end_date': end_date
+            }
+            
+            # --- 2. Build the dynamic query based on the selected mode ---
+            query = """
+                SELECT DATE_FORMAT(p.date_sold, '%Y-%m') AS date_month, AVG(p.price) AS average_price
+                FROM FACT_Properties p
+                JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
+            """
+            conditions = ["1=1"] # Start with a true condition
+            params = {}
+            title_parts = []
+
+            # Determine the main geographic filter
+            if filter_by == 'suburb' and suburb_id:
+                conditions.append("p.suburb_id = :suburb_id")
+                params['suburb_id'] = suburb_id
+                suburb_map = {item['suburb_id']: item['suburb_name'] for item in dim_data['suburbs']}
+                title_parts.append(suburb_map.get(int(suburb_id), "").title())
+            elif filter_by == 'postcode' and postcode:
+                conditions.append("s.postcode = :postcode")
+                params['postcode'] = postcode
+                title_parts.append(f"Postcode {postcode}")
+                
+            if property_type:
+                conditions.append("p.property_type = :property_type")
+                params['property_type'] = property_type
+                title_parts.append(property_type.title())
+            
+            # Add other optional filters
+            if layout_id:
+                conditions.append("p.layout_id = :layout_id")
+                params['layout_id'] = layout_id
+                layout_map = {item['layout_id']: item['layout_name'] for item in dim_data['layouts']}
+                title_parts.append(layout_map.get(int(layout_id), ""))
+            if start_date:
+                conditions.append("p.date_sold >= :start_date"); params['start_date'] = start_date
+            if end_date:
+                conditions.append("p.date_sold <= :end_date"); params['end_date'] = end_date
+            
+            query += " WHERE " + " AND ".join(conditions)
+            query += " GROUP BY date_month ORDER BY date_month ASC;"
+
+            # --- 3. Execute and prepare data (no changes here) ---
+            with engine.connect() as connection:
+                trend_df = pd.read_sql(text(query), connection, params=params)
+                if not trend_df.empty:
+                    chart_data = {
+                        'labels': trend_df['date_month'].tolist(),
+                        'values': trend_df['average_price'].tolist()
+                    }
+                    chart_title = "Price Trend for " + " & ".join(filter(None, title_parts)) if title_parts else "Overall Market Trend"
+                else:
+                    flash("No data found for the selected criteria.", "warning")
+
+        except Exception as e:
+            flash(f"Error running query: {e}", 'danger')
+
+    return render_template('trend.html', 
+                           suburbs=dim_data['suburbs'], 
+                           layouts=dim_data['layouts'],
+                           postcodes=dim_data['postcodes'], # Pass postcodes to the template
+                           property_types=dim_data['property_types'],
+                           chart_data=chart_data,
+                           chart_title=chart_title,
+                           selected_filters=selected_filters)
 # --- 5. Run the App ---
 if __name__ == '__main__':
     app.run(debug=True, port=5001) 

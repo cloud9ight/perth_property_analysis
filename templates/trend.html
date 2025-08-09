@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Price Trend Analysis{% endblock %}
+
+{% block content %}
+    <h2>Price Trend Analysis</h2>
+    <p>Analyse price trends over time. Choose to filter by a single Suburb or an entire Postcode for a broader view.</p>
+
+    <div class="filter-container">
+        <form class="filter-form" action="{{ url_for('trend') }}" method="post">
+            
+            <div class="filter-group-radio">
+                <label ><strong>Filter By:</strong></label>
+                <div class="radio-options">
+                <input type="radio" id="filter_by_suburb" name="filter_by" value="suburb" 
+                       {% if not selected_filters.filter_by or selected_filters.filter_by == 'suburb' %}checked{% endif %}>
+                <label for="filter_by_suburb">Suburb</label>
+                <input type="radio" id="filter_by_postcode" name="filter_by" value="postcode"
+                       {% if selected_filters.filter_by == 'postcode' %}checked{% endif %}>
+                <label for="filter_by_postcode">Postcode</label>
+                </div>
+            </div>
+
+            <div class="filter-group" id="suburb-filter-group">
+                <label for="suburb_id">Suburb:</label>
+                <select id="suburb_id" name="suburb_id">
+                    <option value="">-- All Suburbs --</option>
+                    {% for suburb in suburbs %}
+                        <option value="{{ suburb.suburb_id }}" {% if suburb.suburb_id == selected_filters.suburb_id %}selected{% endif %}>
+                            {{ suburb.suburb_name | title }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filter-group" id="postcode-filter-group" style="display: none;">
+                <label for="postcode">Postcode:</label>
+                <select id="postcode" name="postcode">
+                    <option value="">-- All Postcodes --</option>
+                    {% for pc in postcodes %}
+                        <option value="{{ pc }}" {% if pc == selected_filters.postcode %}selected{% endif %}>{{ pc }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="property_type">Property Type:</label>
+               
+                <select id="property_type" name="property_type">
+                  <option value="">-- All Types --</option>
+                  <!-- Loop through the list passed from the backend -->
+                 {% for p_type in property_types %}
+                      <option value="{{ p_type }}" {% if p_type == selected_filters.property_type %}selected{% endif %}>
+                <!-- Use the | title filter to make it look nice, e.g., "duplex-semi-d..." -> "Duplex-Semi-D..." -->
+                       {{ p_type.replace('-', ' ') | title }}
+            </option>
+        {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="layout_id">Layout:</label>
+                <select id="layout_id" name="layout_id">
+                    <option value="">-- All Layouts --</option>
+                    {% for layout in layouts %}
+                        <option value="{{ layout.layout_id }}" {% if layout.layout_id == selected_filters.layout_id %}selected{% endif %}>
+                            {{ layout.layout_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="start_date">Start Date:</label>
+                <input type="date" id="start_date" name="start_date" value="{{ selected_filters.start_date or '' }}">
+            </div>
+            <div class="filter-group">
+                <label for="end_date">End Date:</label>
+                <input type="date" id="end_date" name="end_date" value="{{ selected_filters.end_date or '' }}">
+            </div>
+
+            <button type="submit">Generate Trend</button>
+        </form>
+    </div>
+
+    <hr style="margin: 2em 0;">
+
+    <div class="disclaimer-box">
+        <p><strong>Data Context & Limitations:</strong> The statistics and trends presented are based on available sales data and are intended for general market reference only. Price fluctuations may be influenced by factors not captured in this dataset, such as property condition, specific location attributes, and small sample sizes in certain time periods or areas. For investment or other business decisions, a more detailed, case-specific analysis is strongly recommended.</p>
+    </div>
+
+    <div class="results">
+        {% if chart_data %}
+            <h3>{{ chart_title }}</h3>
+            <div style="width: 100%; max-width: 900px; margin: auto;">
+                <canvas id="trendChart"></canvas>
+            </div>
+        {% elif request.method == 'POST' %}
+            <p>No trend data found for the selected criteria.</p>
+        {% else %}
+            <p>Select your market segment and time frame to generate a trend chart.</p>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='custom.js') }}?v=1.4"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Logic for toggling Suburb/Postcode filters ---
+        const suburbRadio = document.getElementById('filter_by_suburb');
+        const postcodeRadio = document.getElementById('filter_by_postcode');
+        const suburbGroup = document.getElementById('suburb-filter-group');
+        const postcodeGroup = document.getElementById('postcode-filter-group');
+
+        function toggleFilters() {
+            if (suburbRadio.checked) {
+                suburbGroup.style.display = 'flex';
+                postcodeGroup.style.display = 'none';
+            } else {
+                suburbGroup.style.display = 'none';
+                postcodeGroup.style.display = 'flex';
+            }
+        }
+        toggleFilters();
+        suburbRadio.addEventListener('change', toggleFilters);
+        postcodeRadio.addEventListener('change', toggleFilters);
+
+        // --- Logic for rendering the chart ---
+        const chartData = {{ chart_data | tojson | safe }};
+        const ctx = document.getElementById('trendChart'); // Get the canvas element
+
+        if (chartData && chartData.labels && chartData.labels.length > 0) {
+            // Destroy any existing chart instance on the canvas before creating a new one
+            let chartStatus = Chart.getChart("trendChart"); 
+            if (chartStatus != undefined) {
+                chartStatus.destroy();
+            }
+            
+            // Now, create the new Chart instance. 'Chart' is guaranteed to be defined here.
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: 'Average Price (AUD)',
+                        data: chartData.values,
+                        borderColor: '#2ecc71',
+                        backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    return '$' + new Intl.NumberFormat().format(value);
+                                }
+                            },
+                            title: { display: true, text: 'Average Price' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Date' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Price: ' + new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(context.parsed.y);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            // Optional: Clear canvas if no data.
+            // This is if you want to explicitly remove a previous chart if a new query yields no data.
+            let chartStatus = Chart.getChart("trendChart"); 
+            if (chartStatus != undefined) {
+                chartStatus.destroy();
+            }
+            // You might also want to clear the canvas visually, e.g., by resetting its context or hiding its parent div.
+        }
+    });
+</script>
+{% endblock %}
