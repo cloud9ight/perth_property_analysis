@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Price Trend Analysis{% endblock %}
+
+{% block content %}
+    <h2>Price Trend Analysis</h2>
+    <p>Analyze the average property price trend over time based on specific market segments.</p>
+
+    <!-- Filter Form -->
+    <div class="filter-container">
+        <form class="filter-form" action="{{ url_for('trend') }}" method="post">
+            
+            <div class="filter-group">
+                <label for="suburb_select">Suburb:</label>
+                <!-- We use a single select here as it's a deep dive into one segment -->
+                <select id="suburb_select" name="suburb_id">
+                    <option value="">-- (Optional) Select a Suburb --</option>
+                    {% for suburb in suburbs %}
+                        <option value="{{ suburb.suburb_id }}" 
+                                {% if suburb.suburb_id == selected_filters.suburb_id %}selected{% endif %}>
+                            {{ suburb.suburb_name | title }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="layout_select">Layout:</label>
+                <select id="layout_select" name="layout_id">
+                    <option value="">-- (Optional) Select a Layout --</option>
+                    {% for layout in layouts %}
+                        <option value="{{ layout.layout_id }}" 
+                                {% if layout.layout_id == selected_filters.layout_id %}selected{% endif %}>
+                            {{ layout.layout_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="filter-group">
+                <label for="start_date">Start Date:</label>
+                <input type="date" id="start_date" name="start_date" value="{{ selected_filters.start_date }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="end_date">End Date:</label>
+                <input type="date" id="end_date" name="end_date" value="{{ selected_filters.end_date }}">
+            </div>
+
+            <button type="submit">Generate Trend</button>
+        </form>
+    </div>
+
+    <hr style="margin: 2em 0;">
+
+    <!-- Results Section: Chart Display -->
+    <div class="results">
+        {% if chart_data %}
+            <h3>Price Trend Over Time</h3>
+            <div style="width: 100%; max-width: 900px; margin: auto;">
+                <!-- Chart.js canvas -->
+                <canvas id="trendChart"></canvas>
+            </div>
+        {% elif request.method == 'POST' %}
+            <p>No trend data found for the selected criteria. Please try a different selection.</p>
+        {% else %}
+            <p>Select your market segment and time frame to generate a price trend chart.</p>
+        {% endif %}
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- Include Chart.js script if not already in base.html. If already in base.html, remove this line. -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script> 
+
+<script>
+    // This function ensures the script runs after the DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        // We look for the chart_data variable passed from our Flask backend.
+        // It should be a JSON string, so we parse it into a JS object.
+        const chartData = {{ chart_data | tojson | safe }};
+
+        if (chartData && chartData.labels && chartData.labels.length > 0) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels, // YYYY-MM
+                    datasets: [{
+                        label: 'Average Price (AUD)',
+                        data: chartData.values,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            ticks: {
+                                // Format ticks as currency
+                                callback: function(value, index, values) {
+                                    return '$' + new Intl.NumberFormat().format(value);
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Average Price'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                // Format tooltip labels as currency
+                                label: function(context) {
+                                    return 'Price: ' + new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(context.parsed.y);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

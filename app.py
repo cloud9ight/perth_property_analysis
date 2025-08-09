@@ -394,6 +394,80 @@ def compare():
                            selected_filter_labels=selected_filter_labels,
                            suburb_color_map=suburb_color_map)
 
+@app.route('/trend', methods=['GET', 'POST'])
+def trend():
+    """
+    Handles the trend analysis page, allowing users to analyze price trends over time.
+    """
+    dim_data = get_dimension_data()
+    chart_data = None
+    selected_filters = {}
+    
+    # We need a start date and end date for filtering the time series.
+    # We also need a layout and/or a suburb.
+    
+    if request.method == 'POST':
+        try:
+            # 1. Get filter choices
+            start_date = request.form.get('start_date')
+            end_date = request.form.get('end_date')
+            suburb_id = request.form.get('suburb_id')
+            layout_id = request.form.get('layout_id')
+            
+            selected_filters = {
+                'suburb_id': int(suburb_id) if suburb_id else None,
+                'layout_id': int(layout_id) if layout_id else None,
+                'start_date': start_date,
+                'end_date': end_date
+            }
+            
+            # 2. Build the dynamic trend query (Aggregated by Month)
+            query = """
+                SELECT
+                    DATE_FORMAT(p.date_sold, '%Y-%m') AS date_month,
+                    AVG(p.price) AS average_price
+                FROM FACT_Properties p
+                WHERE 1=1
+            """
+            params = {}
+
+            if suburb_id:
+                query += " AND p.suburb_id = :suburb_id"
+                params['suburb_id'] = suburb_id
+            if layout_id:
+                query += " AND p.layout_id = :layout_id"
+                params['layout_id'] = layout_id
+            if start_date:
+                query += " AND p.date_sold >= :start_date"
+                params['start_date'] = start_date
+            if end_date:
+                query += " AND p.date_sold <= :end_date"
+                params['end_date'] = end_date
+            
+            query += " GROUP BY date_month ORDER BY date_month ASC;"
+
+            # 3. Execute query and prepare data for Chart.js
+            with engine.connect() as connection:
+                trend_df = pd.read_sql(text(query), connection, params=params)
+                
+                if not trend_df.empty:
+                    chart_data = {
+                        'labels': trend_df['date_month'].tolist(), # X-axis: Dates in YYYY-MM format
+                        'values': trend_df['average_price'].tolist() # Y-axis: Average Price
+                    }
+                else:
+                    flash("No data found for the selected criteria to generate a trend chart.", "warning")
+
+        except Exception as e:
+            flash(f"Error running query: {e}", 'danger')
+            logging.error(f"Failed during trend analysis POST request: {e}")
+
+    # 4. Render template
+    return render_template('trend.html', 
+                           suburbs=dim_data['suburbs'], 
+                           layouts=dim_data['layouts'], 
+                           chart_data=chart_data,
+                           selected_filters=selected_filters)
 # --- 5. Run the App ---
 if __name__ == '__main__':
     app.run(debug=True, port=5001) 
