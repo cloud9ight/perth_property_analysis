@@ -493,6 +493,52 @@ def trend():
                            chart_data=chart_data,
                            chart_title=chart_title,
                            selected_filters=selected_filters)
+
+@app.route('/map')
+def show_map():
+    """
+    Displays properties on an interactive map.
+    It can receive a list of listing_ids to display, or show a default view.
+    """
+    # Get the list of listing IDs from the URL query parameter, if it exists
+    listing_ids_str = request.args.get('ids', '')
+    
+    properties_for_map = []
+    
+    # Base query to fetch data needed for the map
+    query = """
+        SELECT listing_id, price, address, latitude, longitude, s.suburb_name
+        FROM FACT_Properties p
+        JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
+    """
+    params = {}
+
+    if listing_ids_str:
+        # If IDs are provided, convert them to a list of integers
+        try:
+            listing_ids = [int(id_str) for id_str in listing_ids_str.split(',')]
+            query += " WHERE p.listing_id IN :listing_ids"
+            params['listing_ids'] = tuple(listing_ids)
+        except ValueError:
+            flash("Invalid listing IDs provided for the map.", "danger")
+            # Fall back to the default view if IDs are invalid
+    else:
+        # Default view: Show a random sample of 500 properties if no IDs are given
+        query += " ORDER BY RAND() LIMIT 500"
+
+    try:
+        with engine.connect() as connection:
+            map_df = pd.read_sql(text(query), connection, params=params)
+            if not map_df.empty:
+                properties_for_map = map_df.to_dict('records')
+    except Exception as e:
+        flash(f"Error fetching map data: {e}", "danger")
+        logging.error(f"Failed to fetch map data: {e}")
+
+    # Pass the list of property data to the template
+    return render_template('map.html', properties_for_map=properties_for_map)
+
+
 # --- 5. Run the App ---
 if __name__ == '__main__':
     app.run(debug=True, port=5001) 

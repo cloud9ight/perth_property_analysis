@@ -127,6 +127,15 @@
   <h3>Comparison Summary</h3>
 
   {% if stats_results %}
+  <div style="margin-bottom: 1.5em">
+    <a
+      href="{{ url_for('show_map', ids=stats_results | map(attribute='listing_id') | join(',')) }}"
+      class="button-link"
+    >
+      View these properties on a map
+    </a>
+  </div>
+
   <div class="summary-grid">
     <!-- Loop through each result, which is a unique (suburb, year) combination -->
     {% for result in stats_results %}
