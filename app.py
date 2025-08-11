@@ -1,7 +1,7 @@
 # app.py - Final version with both /add and /explore routes
 
 # --- 1. Imports and Setup ---
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from sqlalchemy import create_engine, text
 import pandas as pd
 import logging
@@ -589,6 +589,40 @@ def show_map():
                            info_message=info_message,
                            selected_filters=selected_filters)
 
+@app.route('/api/schools/<school_type>')
+def get_schools_api(school_type):
+    """
+    A flexible API endpoint that returns school data as JSON.
+    <school_type> can be 'primary' or 'secondary'.
+    """
+    # Validate the requested school type to prevent unexpected table names
+    if school_type not in ['primary', 'secondary']:
+        return jsonify({'error': 'Invalid school type requested'}), 400
+
+    # Dynamically build the table and column names
+    table_name = f"DIM_{school_type.capitalize()}_Schools"
+    name_col = f"{school_type}_school_name"
+    icsea_col = f"{school_type}_school_icsea"
+
+    # The query to fetch all necessary school data
+    query = f"""
+        SELECT 
+            {name_col} AS name, 
+            latitude, 
+            longitude, 
+            {icsea_col} AS icsea 
+        FROM {table_name} 
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+    """
+    
+    try:
+        with engine.connect() as connection:
+            schools_df = pd.read_sql(text(query), connection)
+            # Return the data in a JSON format
+            return jsonify(schools_df.to_dict('records'))
+    except Exception as e:
+        logging.error(f"Failed to fetch school data for API: {e}")
+        return jsonify({'error': 'A database error occurred.'}), 500
 
 # --- 5. Run the App ---
 if __name__ == '__main__':

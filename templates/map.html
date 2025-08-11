@@ -44,7 +44,14 @@ content %}
         <p><strong>{{ info_message }} Click on a marker for details.</strong>
           <br><small><em>(Note: For optimal performance, the map display is limited to the top 3000 properties.)</em></small>
         </p>
-        <div id="map"></div>
+        <div class="map-wrapper">
+            <div id="map"></div>
+            <!-- The buttons for toggling school layers -->
+            <div class="map-controls">
+                <button id="toggle-primary-schools" class="map-control-btn">Show Primary Schools</button>
+                <button id="toggle-secondary-schools" class="map-control-btn">Show Secondary Schools</button>
+            </div>
+        </div>
     </div>
 {% endblock %} {% block scripts %}
 <link
