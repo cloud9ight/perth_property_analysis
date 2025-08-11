@@ -17,11 +17,12 @@ content %}
                 <label for="property_type_select">Property Type:</label>
                 <select id="property_type_select" name="property_type_select">
                     <option value="">-- All Types --</option>
-                    <!-- We can hardcode these as they are fixed -->
-                    <option value="house" {% if 'house' == selected_filters.prop_type %}selected{% endif %}>House</option>
-                    <option value="unit" {% if 'unit' == selected_filters.prop_type %}selected{% endif %}>Unit</option>
-                    <option value="villa" {% if 'villa' == selected_filters.prop_type %}selected{% endif %}>Villa</option>
-                    <option value="townhouse" {% if 'townhouse' == selected_filters.prop_type %}selected{% endif %}>Townhouse</option>
+                    <!-- Loop through the list passed from the backend -->
+                    {% for prop_type in available_property_types %}
+                        <option value="{{ prop_type }}" {% if prop_type == selected_filters.prop_type %}selected{% endif %}>
+                            {{ prop_type | title }}
+                        </option>
+                    {% endfor %}
                 </select>
             </div>
 
@@ -40,7 +41,9 @@ content %}
   "
 ></div>
  <div class="map-container" style="margin-top: 2em;">
-        <p>{{ info_message }} Click on a marker for details.</p>
+        <p>{{ info_message }} Click on a marker for details.
+          <br><small><em>(Note: For optimal performance, the map display is limited to the top 3000 properties.)</em></small>
+        </p>
         <div id="map"></div>
     </div>
 {% endblock %} {% block scripts %}

@@ -507,7 +507,7 @@ def show_map():
     selected_filters = {}
     info_message = ""
     
-    PROPERTY_LIMIT = 2000 
+    PROPERTY_LIMIT = 3000 
     # Base query to fetch data needed for the map
     base_query = """
         SELECT 
@@ -583,6 +583,7 @@ def show_map():
     return render_template('map.html', 
                            properties_for_map=properties_for_map,
                            available_years=dim_data['available_years'],
+                            available_property_types=dim_data['property_types'],
                            info_message=info_message,
                            selected_filters=selected_filters)
 
