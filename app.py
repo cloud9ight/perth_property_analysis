@@ -493,6 +493,101 @@ def trend():
                            chart_data=chart_data,
                            chart_title=chart_title,
                            selected_filters=selected_filters)
+
+@app.route('/map', methods=['GET', 'POST'])
+def show_map():
+    """
+    Displays properties on an interactive map.
+    It can receive a list of listing_ids to display, or show a default view.
+    """
+    # Get the list of listing IDs from the URL query parameter, if it exists
+    listing_ids_str = request.args.get('ids', '')
+    properties_for_map = []
+    dim_data = get_dimension_data()
+    selected_filters = {}
+    info_message = ""
+    
+    PROPERTY_LIMIT = 3000 
+    # Base query to fetch data needed for the map
+    base_query = """
+        SELECT 
+            p.listing_id, 
+            p.price, 
+            p.address, 
+            DATE_FORMAT(p.date_sold, '%Y-%m-%d') AS date_sold, -- Format the date
+            p.latitude, 
+            p.longitude, 
+            s.suburb_name,
+            p.land_size,
+            p.property_type,
+            l.layout_name,
+            s.postcode
+        FROM FACT_Properties p
+        JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
+        JOIN DIM_Layouts l ON p.layout_id = l.layout_id
+    """
+    params = {}
+    
+    info_message = "Showing 1,000 random properties on the map."
+
+    if request.method == 'POST':
+        try:
+            year = request.form.get('year_select')
+            prop_type = request.form.get('property_type_select')
+            
+            selected_filters = {'year': int(year) if year else None, 'prop_type': prop_type}
+            
+            conditions = []
+            if year:
+                conditions.append("YEAR(p.date_sold) = :year")
+                params['year'] = year
+            if prop_type:
+                conditions.append("p.property_type = :prop_type")
+                params['prop_type'] = prop_type
+
+            if conditions:
+                where_clause = "WHERE " + " AND ".join(conditions)
+                # Apply filters and limit to 1000 results for safety
+                final_query = base_query + where_clause + f" ORDER BY p.price DESC LIMIT {PROPERTY_LIMIT};"
+                # info_message = f"Showing up to 1,000 properties matching your filters."
+            else:
+                # If user submits empty filters, just show random results
+                final_query = base_query + f" ORDER BY p.price DESC LIMIT {PROPERTY_LIMIT};"
+        
+        except Exception as e:
+            flash(f"Error processing filters: {e}", "danger")
+            final_query = base_query + f" ORDER BY p.price DESC LIMIT {PROPERTY_LIMIT};"
+            
+    else:
+        # Default view: Show a random sample of 500 properties if no IDs are given
+        final_query = base_query + f" ORDER BY p.price DESC LIMIT {PROPERTY_LIMIT};"
+
+    try:
+        with engine.connect() as connection:
+            map_df = pd.read_sql(text(final_query), connection, params=params)
+            if not map_df.empty:
+                properties_for_map = map_df.to_dict('records')
+                count = len(properties_for_map)
+                
+                if request.method == 'POST' and (selected_filters.get('year') or selected_filters.get('prop_type')):
+                    info_message = f"Showing {count} properties matching your filters."
+                else: # This covers GET requests and empty POST requests
+                    info_message = f"Showing a random sample of {count} properties."
+            else:
+                info_message = "No properties found for the selected criteria."
+    except Exception as e:
+        flash(f"Error fetching map data: {e}", "danger")
+        logging.error(f"Failed to fetch map data: {e}")
+
+    # Pass the list of property data to the template
+    return render_template('map.html', 
+                           properties_for_map=properties_for_map,
+                           available_years=dim_data['available_years'],
+                            available_property_types=dim_data['property_types'],
+                           info_message=info_message,
+                           selected_filters=selected_filters)
+
+
 # --- 5. Run the App ---
 if __name__ == '__main__':
     app.run(debug=True, port=5001) 

@@ -1,0 +1,85 @@
+{% extends "base.html" %} {% block title %}Property Map{% endblock %} {% block
+content %}
+<h2>Interactive Property Map</h2>
+<div class="filter-container">
+        <form class="filter-form" action="{{ url_for('show_map') }}" method="post">
+            <div class="filter-group">
+                <label for="year_select">Year:</label>
+                <select id="year_select" name="year_select">
+                    <option value="">-- All Years --</option>
+                    {% for year in available_years %}
+                        <option value="{{ year }}" {% if year == selected_filters.year %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="property_type_select">Property Type:</label>
+                <select id="property_type_select" name="property_type_select">
+                    <option value="">-- All Types --</option>
+                    <!-- Loop through the list passed from the backend -->
+                    {% for prop_type in available_property_types %}
+                        <option value="{{ prop_type }}" {% if prop_type == selected_filters.prop_type %}selected{% endif %}>
+                            {{ prop_type | title }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit">Apply Filters</button>
+            </div>
+        </form>
+    </div>
+<div
+  id="map"
+  style="
+    height: 600px;
+    width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  "
+></div>
+ <div class="map-container" style="margin-top: 2em;">
+        <p>{{ info_message }} Click on a marker for details.
+          <br><small><em>(Note: For optimal performance, the map display is limited to the top 3000 properties.)</em></small>
+        </p>
+        <div id="map"></div>
+    </div>
+{% endblock %} {% block scripts %}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+<!-- ▼▼▼  MarkerCluster CSS ▼▼▼ -->
+<!-- ====================================================================== -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"
+/>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"
+/>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+<!-- Step 1: The "Data Bridge" -->
+<!-- This script block runs first. It creates a global JavaScript variable 
+     named 'propertyData' and fills it with the data from our Flask backend. -->
+<script>
+  const propertyData = {{ properties_for_map | tojson | safe }};
+</script>
+
+<!-- Step 2: Load our external map logic -->
+<!-- This script runs second. It will find and use the 'propertyData' variable
+     that we just created above. We add a version number to prevent caching issues. -->
+<script src="{{ url_for('static', filename='map.js') }}?v=1.0"></script>
+
+{% endblock %}

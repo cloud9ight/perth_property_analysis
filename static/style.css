@@ -262,3 +262,17 @@ footer {
 .radio-options label {
   font-weight: normal;
 }
+
+.button-link {
+  display: inline-block;
+  padding: 0.8em 1.5em;
+  background-color: #27ae60; /* A nice green color */
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: bold;
+  transition: background-color 0.3s;
+}
+.button-link:hover {
+  background-color: #229954;
+}

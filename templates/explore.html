@@ -84,6 +84,14 @@
     </div>
     <div class="results">
         <h3>Query Results</h3>
+        <div style="margin-bottom: 1.5em">
+    <a
+      href="{{ url_for('show_map', ids=stats_results | map(attribute='listing_id') | join(',')) }}"
+      class="button-link"
+    >
+      View these properties on a map
+    </a>
+  </div>
         <!-- Only show the table if the 'results' list is not empty -->
         {% if results_list %}
             <p>Found <strong>{{ results_list | length }}</strong> matching records.</p>
