@@ -505,7 +505,9 @@ def show_map():
     properties_for_map = []
     dim_data = get_dimension_data()
     selected_filters = {}
+    info_message = ""
     
+    PROPERTY_LIMIT = 2000 
     # Base query to fetch data needed for the map
     base_query = """
         SELECT 
@@ -546,28 +548,33 @@ def show_map():
             if conditions:
                 where_clause = "WHERE " + " AND ".join(conditions)
                 # Apply filters and limit to 1000 results for safety
-                final_query = base_query + where_clause + " ORDER BY p.price DESC LIMIT 1000;"
-                info_message = f"Showing up to 1,000 properties matching your filters."
+                final_query = base_query + where_clause + f" ORDER BY p.price DESC LIMIT {PROPERTY_LIMIT};"
+                # info_message = f"Showing up to 1,000 properties matching your filters."
             else:
                 # If user submits empty filters, just show random results
-                final_query = base_query + " ORDER BY RAND() LIMIT 1000;"
+                final_query = base_query + f" ORDER BY p.price DESC LIMIT {PROPERTY_LIMIT};"
         
         except Exception as e:
             flash(f"Error processing filters: {e}", "danger")
-            final_query = base_query + " ORDER BY RAND() LIMIT 1000;" # Fallback to default
+            final_query = base_query + f" ORDER BY p.price DESC LIMIT {PROPERTY_LIMIT};"
             
     else:
         # Default view: Show a random sample of 500 properties if no IDs are given
-        final_query = base_query + " ORDER BY RAND() LIMIT 1000;"
+        final_query = base_query + f" ORDER BY p.price DESC LIMIT {PROPERTY_LIMIT};"
 
     try:
         with engine.connect() as connection:
             map_df = pd.read_sql(text(final_query), connection, params=params)
             if not map_df.empty:
                 properties_for_map = map_df.to_dict('records')
-                # Update info message with the actual count
-                if request.method == 'POST':
-                    info_message = f"Showing {len(properties_for_map)} properties matching your filters."
+                count = len(properties_for_map)
+                
+                if request.method == 'POST' and (selected_filters.get('year') or selected_filters.get('prop_type')):
+                    info_message = f"Showing {count} properties matching your filters."
+                else: # This covers GET requests and empty POST requests
+                    info_message = f"Showing a random sample of {count} properties."
+            else:
+                info_message = "No properties found for the selected criteria."
     except Exception as e:
         flash(f"Error fetching map data: {e}", "danger")
         logging.error(f"Failed to fetch map data: {e}")
