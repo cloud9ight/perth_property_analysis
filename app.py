@@ -494,7 +494,7 @@ def trend():
                            chart_title=chart_title,
                            selected_filters=selected_filters)
 
-@app.route('/map')
+@app.route('/map', methods=['GET', 'POST'])
 def show_map():
     """
     Displays properties on an interactive map.
@@ -503,9 +503,11 @@ def show_map():
     # Get the list of listing IDs from the URL query parameter, if it exists
     listing_ids_str = request.args.get('ids', '')
     properties_for_map = []
+    dim_data = get_dimension_data()
+    selected_filters = {}
     
     # Base query to fetch data needed for the map
-    query = """
+    base_query = """
         SELECT 
             p.listing_id, 
             p.price, 
@@ -523,32 +525,59 @@ def show_map():
         JOIN DIM_Layouts l ON p.layout_id = l.layout_id
     """
     params = {}
+    
+    info_message = "Showing 1,000 random properties on the map."
 
-    if listing_ids_str:
-        # If IDs are provided, convert them to a list of integers
+    if request.method == 'POST':
         try:
-            listing_ids = [int(id_str) for id_str in listing_ids_str.split(',')]
-            query += " WHERE p.listing_id IN :listing_ids"
-            params['listing_ids'] = tuple(listing_ids)
-        except ValueError:
-            flash("Invalid listing IDs provided for the map.", "danger")
-            listing_ids_str = '' # Reset to default if error
+            year = request.form.get('year_select')
+            prop_type = request.form.get('property_type_select')
+            
+            selected_filters = {'year': int(year) if year else None, 'prop_type': prop_type}
+            
+            conditions = []
+            if year:
+                conditions.append("YEAR(p.date_sold) = :year")
+                params['year'] = year
+            if prop_type:
+                conditions.append("p.property_type = :prop_type")
+                params['prop_type'] = prop_type
+
+            if conditions:
+                where_clause = "WHERE " + " AND ".join(conditions)
+                # Apply filters and limit to 1000 results for safety
+                final_query = base_query + where_clause + " ORDER BY p.price DESC LIMIT 1000;"
+                info_message = f"Showing up to 1,000 properties matching your filters."
+            else:
+                # If user submits empty filters, just show random results
+                final_query = base_query + " ORDER BY RAND() LIMIT 1000;"
+        
+        except Exception as e:
+            flash(f"Error processing filters: {e}", "danger")
+            final_query = base_query + " ORDER BY RAND() LIMIT 1000;" # Fallback to default
             
     else:
         # Default view: Show a random sample of 500 properties if no IDs are given
-        query += " ORDER BY RAND() LIMIT 1000"
+        final_query = base_query + " ORDER BY RAND() LIMIT 1000;"
 
     try:
         with engine.connect() as connection:
-            map_df = pd.read_sql(text(query), connection, params=params)
+            map_df = pd.read_sql(text(final_query), connection, params=params)
             if not map_df.empty:
                 properties_for_map = map_df.to_dict('records')
+                # Update info message with the actual count
+                if request.method == 'POST':
+                    info_message = f"Showing {len(properties_for_map)} properties matching your filters."
     except Exception as e:
         flash(f"Error fetching map data: {e}", "danger")
         logging.error(f"Failed to fetch map data: {e}")
 
     # Pass the list of property data to the template
-    return render_template('map.html', properties_for_map=properties_for_map)
+    return render_template('map.html', 
+                           properties_for_map=properties_for_map,
+                           available_years=dim_data['available_years'],
+                           info_message=info_message,
+                           selected_filters=selected_filters)
 
 
 # --- 5. Run the App ---

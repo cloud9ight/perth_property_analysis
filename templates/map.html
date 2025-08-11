@@ -1,13 +1,35 @@
 {% extends "base.html" %} {% block title %}Property Map{% endblock %} {% block
 content %}
 <h2>Interactive Property Map</h2>
-<p>
-  {% if properties_for_map %} Showing
-  <strong>{{ properties_for_map | length }}</strong> properties on the map.
-  Click on a marker for details. {% else %} No properties to display. Try
-  performing a search on the 'Compare' page first. {% endif %}
-</p>
+<div class="filter-container">
+        <form class="filter-form" action="{{ url_for('show_map') }}" method="post">
+            <div class="filter-group">
+                <label for="year_select">Year:</label>
+                <select id="year_select" name="year_select">
+                    <option value="">-- All Years --</option>
+                    {% for year in available_years %}
+                        <option value="{{ year }}" {% if year == selected_filters.year %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="property_type_select">Property Type:</label>
+                <select id="property_type_select" name="property_type_select">
+                    <option value="">-- All Types --</option>
+                    <!-- We can hardcode these as they are fixed -->
+                    <option value="house" {% if 'house' == selected_filters.prop_type %}selected{% endif %}>House</option>
+                    <option value="unit" {% if 'unit' == selected_filters.prop_type %}selected{% endif %}>Unit</option>
+                    <option value="villa" {% if 'villa' == selected_filters.prop_type %}selected{% endif %}>Villa</option>
+                    <option value="townhouse" {% if 'townhouse' == selected_filters.prop_type %}selected{% endif %}>Townhouse</option>
+                </select>
+            </div>
 
+            <div class="filter-actions">
+                <button type="submit">Apply Filters</button>
+            </div>
+        </form>
+    </div>
 <div
   id="map"
   style="
@@ -17,6 +39,10 @@ content %}
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   "
 ></div>
+ <div class="map-container" style="margin-top: 2em;">
+        <p>{{ info_message }} Click on a marker for details.</p>
+        <div id="map"></div>
+    </div>
 {% endblock %} {% block scripts %}
 <link
   rel="stylesheet"
