@@ -593,31 +593,57 @@ def show_map():
 def get_schools_api(school_type):
     """
     A flexible API endpoint that returns school data as JSON.
-    <school_type> can be 'primary' or 'secondary'.
+    Can optionally accept a 'top' query parameter to return only the top N schools by ICSEA score.
+    e.g., /api/schools/primary?top=20
     """
     # Validate the requested school type to prevent unexpected table names
     if school_type not in ['primary', 'secondary']:
         return jsonify({'error': 'Invalid school type requested'}), 400
+    
+    # Check for the optional 'top' query parameter
+    top_n_str = request.args.get('top')
+
 
     # Dynamically build the table and column names
     table_name = f"DIM_{school_type.capitalize()}_Schools"
+    id_col = f"{school_type}_school_id"
     name_col = f"{school_type}_school_name"
     icsea_col = f"{school_type}_school_icsea"
 
-    # The query to fetch all necessary school data
-    query = f"""
-        SELECT 
-            {name_col} AS name, 
-            latitude, 
-            longitude, 
-            {icsea_col} AS icsea 
-        FROM {table_name} 
-        WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
-    """
-    
+    # Base query now selects from a subquery when 'top' is requested.
+    if top_n_str and top_n_str.isdigit():
+        top_n = int(top_n_str)
+        # The inner query (derived table) FIRST finds the top N school IDs.
+        # The outer query then JOINs the main table with this small, pre-filtered table.
+        query = f"""
+            SELECT
+                t1.{name_col} AS name,
+                t1.latitude,
+                t1.longitude,
+                t1.{icsea_col} AS icsea
+            FROM
+                {table_name} AS t1
+            JOIN
+                (
+                    SELECT {id_col} FROM {table_name}
+                    WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND {icsea_col} IS NOT NULL
+                    ORDER BY {icsea_col} DESC
+                    LIMIT {top_n}
+                ) AS top_schools ON t1.{id_col} = top_schools.{id_col};
+        """
+    else:
+        # The "Show All" case remains simple.
+        query = f"""
+            SELECT {name_col} AS name, latitude, longitude, {icsea_col} AS icsea 
+            FROM {table_name} 
+            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+            ORDER BY {name_col} ASC;
+        """
+        
     try:
         with engine.connect() as connection:
             schools_df = pd.read_sql(text(query), connection)
+            logging.info(f"API call for {school_type} (top={top_n_str}) returned {len(schools_df)} results.")
             # Return the data in a JSON format
             return jsonify(schools_df.to_dict('records'))
     except Exception as e:
