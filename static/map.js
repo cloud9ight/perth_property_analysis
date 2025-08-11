@@ -63,6 +63,9 @@ document.addEventListener("DOMContentLoaded", function () {
                           prop.land_size ? prop.land_size + " sqm" : "N/A"
                         }<br>
                         <strong>Postcode:</strong> ${prop.postcode || "N/A"}<br>
+                        <strong>Distance to CBD:</strong> ${(
+                          prop.distance_to_cbd / 1000
+                        ).toFixed(1)} km<br>
                     </div>
                 `;
 

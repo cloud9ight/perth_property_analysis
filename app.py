@@ -52,6 +52,7 @@ def get_dimension_data():
             secondary_schools = pd.read_sql("SELECT secondary_school_id, secondary_school_name FROM DIM_Secondary_Schools ORDER BY secondary_school_name", connection).to_dict('records')
             years = pd.read_sql("SELECT DISTINCT YEAR(date_sold) as year FROM FACT_Properties ORDER BY year DESC", connection)['year'].tolist()
             postcodes = pd.read_sql("SELECT DISTINCT postcode FROM DIM_Suburbs ORDER BY postcode", connection)['postcode'].tolist()
+
         return {
             'suburbs': suburbs, 'layouts': layouts, 'agencies': agencies,
             'primary_schools': primary_schools, 'secondary_schools': secondary_schools,
@@ -521,14 +522,15 @@ def show_map():
             p.land_size,
             p.property_type,
             l.layout_name,
-            s.postcode
+            s.postcode,
+            p.distance_to_cbd
         FROM FACT_Properties p
         JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
         JOIN DIM_Layouts l ON p.layout_id = l.layout_id
     """
     params = {}
     
-    info_message = "Showing 1,000 random properties on the map."
+    info_message = "Showing 3,000 random properties on the map."
 
     if request.method == 'POST':
         try:
