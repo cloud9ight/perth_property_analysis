@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", function () {
     toggleSchoolLayer("Primary", primaryAllBtn, primaryAllLayer)
   );
   primaryTopBtn?.addEventListener("click", () =>
-    toggleSchoolLayer("Primary", primaryTopBtn, primaryTopLayer, 20)
+    toggleSchoolLayer("Primary", primaryTopBtn, primaryTopLayer, 50)
   );
   secondaryAllBtn?.addEventListener("click", () =>
     toggleSchoolLayer("Secondary", secondaryAllBtn, secondaryAllLayer)
