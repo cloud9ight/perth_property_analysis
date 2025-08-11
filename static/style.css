@@ -276,3 +276,14 @@ footer {
 .button-link:hover {
   background-color: #229954;
 }
+
+/* ... */
+.map-control-btn.btn-premium {
+  border-color: #f1c40f; /* A golden color */
+  color: #b8860b;
+}
+
+.map-control-btn.btn-premium.active {
+  background-color: #fffbe6; /* A light yellow when active */
+  border-color: #b8860b;
+}

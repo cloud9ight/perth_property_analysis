@@ -41,10 +41,20 @@ content %}
   "
 ></div>
  <div class="map-container" style="margin-top: 2em;">
-        <p>{{ info_message }} Click on a marker for details.
+        <p><strong>{{ info_message }} Click on a marker for details.</strong>
           <br><small><em>(Note: For optimal performance, the map display is limited to the top 3000 properties.)</em></small>
         </p>
-        <div id="map"></div>
+        <div class="map-wrapper">
+            <div id="map"></div>
+            <!-- The buttons for toggling school layers -->
+            <div class="map-controls">
+                <button id="toggle-primary-schools" class="map-control-btn">Show Primary Schools</button>
+                <button id="toggle-top-primary" class="map-control-btn btn-premium">Show Top 50 Primary</button>
+                <button id="toggle-secondary-schools" class="map-control-btn">Show Secondary Schools</button>
+                <button id="toggle-top-secondary" class="map-control-btn btn-premium">Show Top 20 Secondary</button>
+                
+            </div>
+        </div>
     </div>
 {% endblock %} {% block scripts %}
 <link

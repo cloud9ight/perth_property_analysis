@@ -1,7 +1,7 @@
 # app.py - Final version with both /add and /explore routes
 
 # --- 1. Imports and Setup ---
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from sqlalchemy import create_engine, text
 import pandas as pd
 import logging
@@ -52,6 +52,7 @@ def get_dimension_data():
             secondary_schools = pd.read_sql("SELECT secondary_school_id, secondary_school_name FROM DIM_Secondary_Schools ORDER BY secondary_school_name", connection).to_dict('records')
             years = pd.read_sql("SELECT DISTINCT YEAR(date_sold) as year FROM FACT_Properties ORDER BY year DESC", connection)['year'].tolist()
             postcodes = pd.read_sql("SELECT DISTINCT postcode FROM DIM_Suburbs ORDER BY postcode", connection)['postcode'].tolist()
+
         return {
             'suburbs': suburbs, 'layouts': layouts, 'agencies': agencies,
             'primary_schools': primary_schools, 'secondary_schools': secondary_schools,
@@ -521,14 +522,15 @@ def show_map():
             p.land_size,
             p.property_type,
             l.layout_name,
-            s.postcode
+            s.postcode,
+            p.distance_to_cbd
         FROM FACT_Properties p
         JOIN DIM_Suburbs s ON p.suburb_id = s.suburb_id
         JOIN DIM_Layouts l ON p.layout_id = l.layout_id
     """
     params = {}
     
-    info_message = "Showing 1,000 random properties on the map."
+    info_message = "Showing 3,000 random properties on the map."
 
     if request.method == 'POST':
         try:
@@ -587,6 +589,66 @@ def show_map():
                            info_message=info_message,
                            selected_filters=selected_filters)
 
+@app.route('/api/schools/<school_type>')
+def get_schools_api(school_type):
+    """
+    A flexible API endpoint that returns school data as JSON.
+    Can optionally accept a 'top' query parameter to return only the top N schools by ICSEA score.
+    e.g., /api/schools/primary?top=20
+    """
+    # Validate the requested school type to prevent unexpected table names
+    if school_type not in ['primary', 'secondary']:
+        return jsonify({'error': 'Invalid school type requested'}), 400
+    
+    # Check for the optional 'top' query parameter
+    top_n_str = request.args.get('top')
+
+
+    # Dynamically build the table and column names
+    table_name = f"DIM_{school_type.capitalize()}_Schools"
+    id_col = f"{school_type}_school_id"
+    name_col = f"{school_type}_school_name"
+    icsea_col = f"{school_type}_school_icsea"
+
+    # Base query now selects from a subquery when 'top' is requested.
+    if top_n_str and top_n_str.isdigit():
+        top_n = int(top_n_str)
+        # The inner query (derived table) FIRST finds the top N school IDs.
+        # The outer query then JOINs the main table with this small, pre-filtered table.
+        query = f"""
+            SELECT
+                t1.{name_col} AS name,
+                t1.latitude,
+                t1.longitude,
+                t1.{icsea_col} AS icsea
+            FROM
+                {table_name} AS t1
+            JOIN
+                (
+                    SELECT {id_col} FROM {table_name}
+                    WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND {icsea_col} IS NOT NULL
+                    ORDER BY {icsea_col} DESC
+                    LIMIT {top_n}
+                ) AS top_schools ON t1.{id_col} = top_schools.{id_col};
+        """
+    else:
+        # The "Show All" case remains simple.
+        query = f"""
+            SELECT {name_col} AS name, latitude, longitude, {icsea_col} AS icsea 
+            FROM {table_name} 
+            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+            ORDER BY {name_col} ASC;
+        """
+        
+    try:
+        with engine.connect() as connection:
+            schools_df = pd.read_sql(text(query), connection)
+            logging.info(f"API call for {school_type} (top={top_n_str}) returned {len(schools_df)} results.")
+            # Return the data in a JSON format
+            return jsonify(schools_df.to_dict('records'))
+    except Exception as e:
+        logging.error(f"Failed to fetch school data for API: {e}")
+        return jsonify({'error': 'A database error occurred.'}), 500
 
 # --- 5. Run the App ---
 if __name__ == '__main__':
