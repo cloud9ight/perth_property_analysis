@@ -78,9 +78,52 @@ The main analytical engine of the application, allowing users to:
 - **Dynamic Color-Coding:** A sophisticated algorithm based on the **Golden Ratio** assigns a unique and visually distinct color to each selected suburb. This color is used consistently in filter tags and result cards, dramatically improving data readability.
 - **Clear & Responsive UI:** An "Active Filters" bar provides context for the results, which are displayed in a fully responsive CSS Grid layout that adapts from 4 columns on desktop to a single column on mobile.
 
-## 5. Future Work & Potential Enhancements
+## 5. Feature: interactive map
 
-- **Interactive Charts:** Replace the static summary cards in the `/compare` view with interactive charts (using Chart.js) to visualize price trends.
-- **Map Integration:** Add a new page that uses the longitude/latitude data and a mapping library (like Leaflet.js or Google Maps) to display properties geographically.
-- **Machine Learning Model:** Build, train, and integrate a price prediction model (e.g., RandomForest, XGBoost) and create a `/predict` page where users can get an estimated value for a new property.
-- **Deployment:** Deploy the final application to a cloud service like Heroku or AWS.
+## 6. Predictive Modeling: House Price Prediction
+
+The final and most advanced feature of this project is a machine learning model that predicts property prices. This section details the end-to-end data science workflow, from feature engineering to model deployment via the web application.
+
+_(The full experimental process is documented in the `model_training.ipynb` notebook.)_
+
+### 6.1. Advanced Feature Engineering: Isolating Location Value
+
+A critical challenge in real estate prediction is accurately quantifying the value of "location" while controlling for a property's physical attributes. A sophisticated, two-stage modeling approach was implemented to solve this:
+
+1.  **Stage 1: Location-Agnostic Base Model:** A baseline RandomForest model was trained using _only_ the physical features of properties (e.g., bedrooms, bathrooms, land size, property type). This model learned the "average" price for a property of a certain specification, irrespective of its location.
+
+2.  **Stage 2: Residual Analysis:** This base model was used to predict the price of every property in the dataset. The **residual** (`actual_price - predicted_price`) was then calculated for each sale. This residual represents the **"pure location premium"**—the portion of the price attributable to location alone.
+
+3.  **Final Feature Creation:** The average residual (or "location premium") was calculated for each suburb. These premiums were then used to segment all suburbs into four distinct **`suburb_value_tier`** categories ('Standard', 'Good', 'High', 'Premium'). This data-driven, low-dimensionality feature became the primary geographical input for the final model, effectively solving the "suburb vs. postcode" dilemma.
+
+### 6.2. Model Training & Evaluation
+
+- **Model Choice:** A `RandomForestRegressor` was chosen for the final predictive model due to its high performance on tabular data, robustness to outliers, and its ability to provide clear feature importance scores.
+
+- **Data Preparation:** The final feature set included both numerical attributes (e.g., `land_size`, `distance_to_cbd`) and the one-hot encoded `suburb_value_tier`.
+
+- **Training:** The model was trained on an 80% split of the dataset, with 20% held back as an unseen test set for final evaluation.
+
+### 6.3. Model Performance & Insights
+
+The trained model demonstrated strong predictive power and provided valuable insights into the Perth property market.
+
+**Performance Metrics:**
+
+- **Test Set R-squared (R²):** **0.7972**
+  - _This indicates that the model can explain approximately **79.7%** of the variance in property prices, a strong result for a complex market._
+- **Test Set Root Mean Squared Error (RMSE):** **~$260,464**
+  - _This represents the typical error margin of the model's price predictions._
+
+**Top 5 Most Important Features:**
+The model revealed the key drivers of property value in Perth:
+
+1.  **`primary_school_icsea` (30.7%)**: The quality of the local primary school is, by a significant margin, the single most important predictor of price.
+2.  **`bathrooms` (22.2%)**: The number of bathrooms has a greater impact on price than the number of bedrooms.
+3.  **`land_size` (18.9%)**: The size of the property block remains a fundamental value driver.
+4.  **`distance_to_cbd` (9.8%)**: Proximity to the city center is a major factor.
+5.  **`tier_Premium Value` (6.3%)**: Our engineered feature, identifying if a property is in a top-tier suburb, proved to be highly influential.
+
+### 6.4. Deployment: The `/predict` Page
+
+The trained model and its required column structure were serialized using `joblib` (`property_price_predictor.pkl` & `model_columns.pkl`). These assets are loaded by the Flask application at startup to power the `/predict` page, where users can input property features and receive an instant price estimation, completing the full "model-to-production" lifecycle.

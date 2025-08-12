@@ -287,3 +287,85 @@ footer {
   background-color: #fffbe6; /* A light yellow when active */
   border-color: #b8860b;
 }
+
+/* prediction page*/
+/* Styles for the Prediction Page */
+.form-and-result-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 2em;
+}
+
+.prediction-form form {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two columns for inputs */
+  gap: 1em;
+}
+
+.prediction-form label {
+  text-align: left;
+  font-weight: 600;
+  margin-bottom: -0.5em; /* Pull label closer to its input */
+}
+
+/* Make labels and inputs span the full width of their column */
+.prediction-form label,
+.prediction-form input,
+.prediction-form select,
+.prediction-form .choices {
+  grid-column: span 2;
+}
+/* Except for these pairs, which will sit side-by-side */
+.prediction-form label[for="bedrooms"],
+.prediction-form input#bedrooms,
+.prediction-form label[for="bathrooms"],
+.prediction-form input#bathrooms,
+.prediction-form label[for="land_size"],
+.prediction-form input#land_size,
+.prediction-form label[for="parking_spaces"],
+.prediction-form input#parking_spaces {
+  grid-column: span 1;
+}
+
+.prediction-result h3 {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.prediction-box {
+  background-color: #e9f5ff;
+  border-left: 5px solid #0d6efd;
+  padding: 2em;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.prediction-label {
+  font-size: 1.2em;
+  color: #495057;
+}
+
+.prediction-value {
+  font-size: 2.5em;
+  font-weight: bold;
+  color: #0d6efd;
+  margin-top: 0.2em;
+}
+
+.prediction-box-placeholder {
+  padding: 2em;
+  text-align: center;
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  height: 100%;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}

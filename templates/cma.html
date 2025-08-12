@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Market Value Estimator (CMA){% endblock %}
+
+{% block content %}
+    <h2>Comparative Market Value Estimator</h2>
+    <p class="module-description">
+        This tool provides a transparent property value estimation based on the Comparative Market Analysis (CMA) method...
+    </p>
+
+    <div class="form-and-result-container">
+        <!-- Input Form - Simplified and with hardcoded bed/bath -->
+        <div class="prediction-form">
+            <h3>Enter Core Property Features</h3>
+            <form id="cmaForm" action="{{ url_for('cma') }}" method="post">
+                
+                <label for="suburb_id">Location (Suburb):</label>
+                <select id="suburb_id" name="suburb_id" class="searchable-select" required>
+                    <option value="">-- Select a Suburb --</option>
+                    {% for suburb in suburbs %}
+                        <option value="{{ suburb.suburb_id }}" 
+                                {% if suburb.suburb_id == user_input.get('suburb_id')|int %}selected{% endif %}>
+                            {{ suburb.suburb_name | title }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <!-- <label for="property_type">Property Type:</label>
+                <select id="property_type" name="property_type" required>
+                    <option value="house" {% if 'house' == user_input.get('property_type') %}selected{% endif %}>House</option>
+                    <option value="villa" {% if 'villa' == user_input.get('property_type') %}selected{% endif %}>Villa / Townhouse</option>
+                    <option value="unit" {% if 'unit' == user_input.get('property_type') %}selected{% endif %}>Unit / Apartment</option>
+                </select> -->
+
+
+                <div class="form-row">
+                    <div>
+                        <label for="bedrooms">Bedrooms:</label>
+                        <select id="bedrooms" name="bedrooms" required>
+                            <!-- We use a simple loop from 1 to 6 -->
+                            {% for i in range(1, 7) %}
+                            <option value="{{ i }}" {% if i == user_input.get('bedrooms')|int %}selected{% endif %}>{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="bathrooms">Bathrooms:</label>
+                         <select id="bathrooms" name="bathrooms" required>
+                            <!-- We use a simple loop from 1 to 5 -->
+                            {% for i in range(1, 6) %}
+                            <option value="{{ i }}" {% if i == user_input.get('bathrooms')|int %}selected{% endif %}>{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <!-- ====================================================================== -->
+
+                <button type="submit" style="margin-top: 1em; grid-column: 1 / -1;">Estimate Value</button>
+            </form>
+        </div>
+
+        <!-- Result Display (no change needed here) -->
+        <div class="prediction-result">
+    <h3>Estimation Result</h3>
+
+    <!-- CASE 1: An estimation was successfully generated -->
+    {% if estimation %}
+        <div class="prediction-box">
+            <div class="prediction-label">Estimated Market Value</div>
+            <div class="prediction-value">{{ estimation.estimated_price }}</div>
+            <hr style="margin: 1em 0; border-color: #dee2e6;">
+            <div class="prediction-details">
+                This estimation is based on the median price of 
+                <strong>{{ estimation.comps_found }}</strong> directly comparable properties 
+                sold during Jan 2023 - Aug 2024 (Median of Comps: <strong>{{ estimation.median_price_of_comps }}</strong>),
+                with a slight adjustment for recent market growth.
+            </div>
+        </div>
+
+    <!-- CASE 2 & 3: No result was generated (either after a query or on initial load) -->
+    {% else %}
+        <!-- We use the SAME placeholder box for ALL non-success states -->
+        <div class="prediction-box-placeholder">
+            <!-- If a POST request was made, it means a query ran but failed. -->
+            {% if request.method == 'POST' %}
+                 <!-- Display the specific flashed message from the backend -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}" style="width: 80%; text-align: center; margin-bottom: 1em;">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                <p>Please try adjusting your filters for a successful estimation.</p>
+            
+            <!-- Otherwise, it's the initial page load (GET request) -->
+            {% else %}
+                <p>Enter property details on the left to get a market-based value estimation.</p>
+            {% endif %}
+        </div>
+    {% endif %}
+      </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            new Choices(document.getElementById('suburb_id'), { itemSelectText: '' });
+        });
+    </script>
+{% endblock %}

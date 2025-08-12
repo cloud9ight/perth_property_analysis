@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 import hashlib 
 import random
+import joblib
 
 #load_dotenv()
 
@@ -37,6 +38,28 @@ try:
 except Exception as e:
     logging.error(f"Failed to create database engine: {e}")
     exit()
+    
+# ▼▼▼  Load the ML Model and Columns at App Startup ▼▼▼
+# ======================================================================
+# model = None
+# model_columns = None
+# suburb_categories = None
+# property_type_categories = None
+# price_tier_map = None
+
+# try:
+#     # Attempt to load all necessary model files.
+#     model = joblib.load('scripts/property_price_predictor.pkl')
+#     model_columns = joblib.load('scripts/model_columns.pkl')
+#     # NEW: Load the category "scripts"
+#     suburb_categories = joblib.load('scripts/suburb_categories.pkl')
+#     property_type_categories = joblib.load('scripts/property_type_categories.pkl')
+#     price_tier_map = joblib.load('scripts/price_tier_map.pkl')
+#     logging.info("All ML model assets, including category lists, loaded successfully.")
+# except Exception as e:
+#     # Catch ANY exception during loading, not just FileNotFoundError.
+#     logging.error(f"CRITICAL ERROR loading model files: {e}. Prediction feature will be disabled.")
+
 
 # --- 3. Helper function to get dimension data ---
 # This avoids repeating code in both routes
@@ -649,6 +672,81 @@ def get_schools_api(school_type):
     except Exception as e:
         logging.error(f"Failed to fetch school data for API: {e}")
         return jsonify({'error': 'A database error occurred.'}), 500
+
+@app.route('/cma', methods=['GET', 'POST'])
+def cma():
+    """
+    Handles the Comparative Market Analysis (CMA) based value estimator.
+    This version has removed the 'property_type' filter for simplicity.
+    """
+    with engine.connect() as connection:
+        suburbs_df = pd.read_sql("SELECT suburb_id, suburb_name FROM DIM_Suburbs ORDER BY suburb_name", connection)
+    
+    estimation_package = None 
+    user_input_values = {}
+    MIN_COMPS_REQUIRED = 5
+
+    if request.method == 'POST':
+        try:
+            # --- Get user input, ensuring correct data types ---
+            suburb_id = request.form.get('suburb_id', type=int)
+            # ▼▼▼  THE CRITICAL FIX: We completely remove the line that gets 'property_type' ▼▼▼
+            # property_type = request.form.get('property_type') 
+            bedrooms = request.form.get('bedrooms', type=int)
+            bathrooms = request.form.get('bathrooms', type=int)
+            user_input_values = request.form
+            
+            # --- Build the simplified, direct SQL query ---
+            conditions = [
+                "p.suburb_id = :suburb_id",
+                "l.bedrooms = :bedrooms",
+                "l.bathrooms = :bathrooms",
+                "p.date_sold >= DATE_SUB(CURDATE(), INTERVAL 20 MONTH)"
+            ]
+            # The params dictionary is now also simpler
+            params = {
+                'suburb_id': suburb_id,
+                'bedrooms': bedrooms,
+                'bathrooms': bathrooms
+            }
+            where_clause = "WHERE " + " AND ".join(conditions)
+            
+            # The query no longer needs to join with FACT_Properties on property_type
+            query = f"""
+                SELECT p.price
+                FROM FACT_Properties p
+                JOIN DIM_Layouts l ON p.layout_id = l.layout_id
+                {where_clause};
+            """
+
+            # --- Execute query and calculate the result ---
+            with engine.connect() as connection:
+                comps_df = pd.read_sql(text(query), connection, params=params)
+                comps_found = len(comps_df)
+                logging.info(f"Found {comps_found} comparable sales matching the criteria.")
+                
+                if comps_found >= MIN_COMPS_REQUIRED:
+                    median_price = comps_df['price'].median()
+                    MARKET_ADJUSTMENT_FACTOR = 1.05
+                    estimated_price = median_price * MARKET_ADJUSTMENT_FACTOR
+                    
+                    estimation_package = {
+                        'estimated_price': f"${estimated_price:,.0f}",
+                        'median_price_of_comps': f"${median_price:,.0f}",
+                        'comps_found': comps_found
+                    }
+                else:
+                    flash(f"Found only {comps_found} comparable sales...", "warning")
+
+        except Exception as e:
+            flash(f"An error occurred during estimation: {e}", "danger")
+            logging.error(f"CMA Estimation Error: {e}")
+
+    return render_template('cma.html', 
+                           suburbs=suburbs_df.to_dict('records'),
+                           estimation=estimation_package,
+                           user_input=user_input_values)
+
 
 # --- 5. Run the App ---
 if __name__ == '__main__':
