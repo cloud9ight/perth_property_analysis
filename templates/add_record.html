@@ -14,6 +14,7 @@
     id="listing_id"
     name="listing_id"
     placeholder="starting from 145724421"
+    value="145724421"
     required
     minlength="9"
     pattern="\d{9,}"
@@ -22,7 +23,7 @@
 
   <label for="price">Price:</label>
   <input
-    type="number"
+    type="text"
     id="price"
     name="price"
     placeholder="e.g., 650000"
@@ -235,13 +236,20 @@
     // 1. Initialize Choices.js on all elements with the 'searchable-select' class ---
     const elements = document.querySelectorAll(".searchable-select");
     elements.forEach(function (element) {
-      // We create a new Choices object for each selected element.
-      // You can pass configuration options here if needed.
+      // create a new Choices object for each selected element.
       new Choices(element, {
         searchPlaceholderValue: "Type here to search...",
       });
     });
     console.log(`Initialized Choices.js on ${elements.length} dropdowns.`);
+
+    const priceInput = document.getElementById("price");
+
+    priceInput.addEventListener("input", function (e) {
+      let value = e.target.value.replace(/\D/g, "");
+
+      e.target.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    });
 
     // 2. for submission listener
     const form = document.getElementById("addRecordForm");

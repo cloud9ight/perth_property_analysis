@@ -148,43 +148,48 @@ def add_new_record():
     if request.method == 'POST':
         try:
             listing_id_str = request.form.get('listing_id', '').strip()
+            
             if not listing_id_str.isdigit() or len(listing_id_str) < 9:
                 # If validation fails, flash an error message
                 flash('Validation Error: Listing ID must be at least 9 digits long.', 'danger')
                 # It's important to redirect back to the form
                 return redirect(url_for('add_new_record'))
-
             
             listing_id = int(listing_id_str)
-            # with engine.connect() as connection:
-            #     result = connection.execute(text("SELECT 1 FROM FACT_Properties WHERE listing_id = :id"), {'id': listing_id}).first()
-            #     if result:
-            #         flash(f'Validation Error: Listing ID {listing_id} already exists in the database.', 'danger')
-            #         return redirect(url_for('add_new_record'))
-
             # mock mode, only check fake_db
             if any(record['listing_id'] == listing_id for record in fake_database_records):
                  flash(f'Validation Error: Listing ID {listing_id} has already been added in this session.', 'danger')
-                 return redirect(url_for('add_new_record'))     
-                    
+                 return redirect(url_for('add_new_record'))  
+            
+            price_str = request.form.get('price', '') # Get the price as a string
+             # If the string is not empty, remove all non-digit characters (like commas)
+            if price_str:
+                sanitized_price_str = ''.join(filter(str.isdigit, price_str))
+                # Attempt to convert the sanitized string to a float
+                price = float(sanitized_price_str) if sanitized_price_str else None
+            else:
+                price = None
+            
+            # Now, perform the validation on the cleaned price value
+            if price is None:
+                flash('Validation Error: Price is a required field and must be a valid number.', 'danger')
+                return redirect(url_for('add_new_record'))
+         
+                                  
             # 1. Get all the data from the submitted form.
             new_record_data = {
-                'listing_id': request.form.get('listing_id', type=int),
-                'price': request.form.get('price', type=float),
+                'listing_id': listing_id,
+                'price': price, # Use the cleaned, converted float
                 'address': request.form.get('address'),
                 'property_type': request.form.get('property_type'),
                 'date_sold': request.form.get('date_sold'),
-                # We also get the text of the selected options for display purposes
                 'suburb_name': request.form.get('suburb_name_text'),
                 'layout_name': request.form.get('layout_name_text')
             }
             logging.info(f"Received new record data (mock mode): {new_record_data}")
 
-
-            # Instead of creating and executing a SQL INSERT statement...
             #  append the new record dictionary to our global list.
             fake_database_records.append(new_record_data)
-            
             
             flash('Success! New record has been simulated and added to the temporary list.', 'success')
             return redirect(url_for('add_new_record')) # Redirect to clear the form
