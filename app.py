@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 import hashlib 
 import random
+import joblib
 
 #load_dotenv()
 
@@ -37,6 +38,23 @@ try:
 except Exception as e:
     logging.error(f"Failed to create database engine: {e}")
     exit()
+    
+# ▼▼▼  Load the ML Model and Columns at App Startup ▼▼▼
+# ======================================================================
+model = None
+model_columns = None
+price_tier_map = None
+
+try:
+    # Attempt to load all necessary model files.
+    model = joblib.load('scripts/property_price_predictor.pkl')
+    model_columns = joblib.load('scripts/model_columns.pkl')
+    price_tier_map = joblib.load('scripts/price_tier_map.pkl')
+    logging.info("All ML model assets loaded successfully.")
+except Exception as e:
+    # Catch ANY exception during loading, not just FileNotFoundError.
+    logging.error(f"CRITICAL ERROR loading model files: {e}. Prediction feature will be disabled.")
+
 
 # --- 3. Helper function to get dimension data ---
 # This avoids repeating code in both routes
@@ -649,6 +667,57 @@ def get_schools_api(school_type):
     except Exception as e:
         logging.error(f"Failed to fetch school data for API: {e}")
         return jsonify({'error': 'A database error occurred.'}), 500
+
+@app.route('/predict', methods=['GET', 'POST'])
+def predict():
+    dim_data = get_dimension_data()
+    prediction_result = None
+    user_input_values = {}
+
+    if request.method == 'POST':
+        # This check is now 100% safe because the variables are guaranteed to exist.
+        if model is None or model_columns is None or price_tier_map is None:
+            flash("Sorry, the prediction service is currently unavailable. Model files could not be loaded.", "danger")
+        else:
+            try:
+                # --- 1. Get user input from the form ---
+                user_input = {
+                    'bedrooms': request.form.get('bedrooms', type=int), 'bathrooms': request.form.get('bathrooms', type=int),
+                    'land_size': request.form.get('land_size', type=int), 'parking_spaces': request.form.get('parking_spaces', type=int),
+                    'distance_to_cbd': request.form.get('distance_to_cbd', type=int),
+                    'primary_school_icsea': request.form.get('primary_school_icsea', type=float),
+                    'secondary_school_icsea': request.form.get('secondary_school_icsea', type=float),
+                    'suburb_name': request.form.get('suburb_name')
+                }
+                user_input_values = user_input
+                logging.info(f"Received user input for prediction: {user_input}")
+
+                # --- 2. Prepare the input data for the model (REAL LOGIC) ---
+                selected_suburb = user_input['suburb_name']
+                # Use the loaded map to find the tier. Default to a common tier if not found.
+                suburb_tier = price_tier_map.get(selected_suburb.lower(), 'Mid-Range')
+                
+                input_df = pd.DataFrame([user_input])
+                input_df['suburb_value_tier'] = suburb_tier
+                
+                input_df_encoded = pd.get_dummies(input_df, columns=['suburb_value_tier'], prefix='tier')
+                
+                # Align columns with the trained model's columns - this is the core of consistency!
+                final_df = input_df_encoded.reindex(columns=model_columns, fill_value=0)
+
+                # --- 3. Make the prediction ---
+                price_prediction = model.predict(final_df)[0]
+                prediction_result = f"${price_prediction:,.0f}"
+
+            except Exception as e:
+                flash(f"An error occurred during prediction: {e}", "danger")
+                logging.error(f"Prediction Error: {e}")
+
+    return render_template('predict.html', 
+                           suburbs=dim_data['suburbs'], 
+                           prediction=prediction_result,
+                           user_input=user_input_values)
+
 
 # --- 5. Run the App ---
 if __name__ == '__main__':
