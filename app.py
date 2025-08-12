@@ -677,42 +677,41 @@ def get_schools_api(school_type):
 def cma():
     """
     Handles the Comparative Market Analysis (CMA) based value estimator.
-    This is the final, simplified, and robust version based on direct comparable sales.
+    This version has removed the 'property_type' filter for simplicity.
     """
-    # Fetch suburbs for the dropdown - this part is correct.
     with engine.connect() as connection:
         suburbs_df = pd.read_sql("SELECT suburb_id, suburb_name FROM DIM_Suburbs ORDER BY suburb_name", connection)
     
     estimation_package = None 
     user_input_values = {}
-    MIN_COMPS_REQUIRED = 5 # We still need a quality threshold.
+    MIN_COMPS_REQUIRED = 5
 
     if request.method == 'POST':
         try:
-            # --- 1. Get user input, ensuring correct data types ---
+            # --- Get user input, ensuring correct data types ---
             suburb_id = request.form.get('suburb_id', type=int)
-            property_type = request.form.get('property_type')
+            # ▼▼▼  THE CRITICAL FIX: We completely remove the line that gets 'property_type' ▼▼▼
+            # property_type = request.form.get('property_type') 
             bedrooms = request.form.get('bedrooms', type=int)
             bathrooms = request.form.get('bathrooms', type=int)
             user_input_values = request.form
             
-            # --- 2. Build ONE simple, direct SQL query to find comps ---
+            # --- Build the simplified, direct SQL query ---
             conditions = [
                 "p.suburb_id = :suburb_id",
-                "p.property_type = :property_type",
                 "l.bedrooms = :bedrooms",
                 "l.bathrooms = :bathrooms",
-                "p.date_sold >= DATE_SUB(CURDATE(), INTERVAL 18 MONTH)"
+                "p.date_sold >= DATE_SUB(CURDATE(), INTERVAL 20 MONTH)"
             ]
+            # The params dictionary is now also simpler
             params = {
                 'suburb_id': suburb_id,
-                'property_type': property_type,
                 'bedrooms': bedrooms,
                 'bathrooms': bathrooms
             }
             where_clause = "WHERE " + " AND ".join(conditions)
             
-            # This query is simple: it just gets the prices of matching properties.
+            # The query no longer needs to join with FACT_Properties on property_type
             query = f"""
                 SELECT p.price
                 FROM FACT_Properties p
@@ -720,31 +719,24 @@ def cma():
                 {where_clause};
             """
 
-            # --- 3. Execute query and calculate the result in Pandas ---
+            # --- Execute query and calculate the result ---
             with engine.connect() as connection:
                 comps_df = pd.read_sql(text(query), connection, params=params)
                 comps_found = len(comps_df)
                 logging.info(f"Found {comps_found} comparable sales matching the criteria.")
                 
-                # Check if we have enough data for a reliable estimate
                 if comps_found >= MIN_COMPS_REQUIRED:
-                    # --- THE CORE LOGIC, as you described ---
-                    # 1. Find the median price using Pandas (more robust than complex SQL).
                     median_price = comps_df['price'].median()
-                    
-                    # 2. Apply a simple, explainable market adjustment factor.
-                    MARKET_ADJUSTMENT_FACTOR = 1.05 # 5% growth
+                    MARKET_ADJUSTMENT_FACTOR = 1.05
                     estimated_price = median_price * MARKET_ADJUSTMENT_FACTOR
                     
-                    # 3. Package the final, transparent result.
                     estimation_package = {
                         'estimated_price': f"${estimated_price:,.0f}",
                         'median_price_of_comps': f"${median_price:,.0f}",
                         'comps_found': comps_found
                     }
                 else:
-                    # If not enough comps, provide clear feedback.
-                    flash(f"Found only {comps_found} comparable sales. A reliable estimation requires at least {MIN_COMPS_REQUIRED}. Please try broader criteria.", "warning")
+                    flash(f"Found only {comps_found} comparable sales...", "warning")
 
         except Exception as e:
             flash(f"An error occurred during estimation: {e}", "danger")

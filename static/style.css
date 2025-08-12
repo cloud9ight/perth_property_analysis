@@ -292,7 +292,8 @@ footer {
 /* Styles for the Prediction Page */
 .form-and-result-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
   gap: 2em;
 }
 
@@ -329,6 +330,9 @@ footer {
 
 .prediction-result h3 {
   margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .prediction-box {
@@ -349,4 +353,19 @@ footer {
   font-weight: bold;
   color: #0d6efd;
   margin-top: 0.2em;
+}
+
+.prediction-box-placeholder {
+  padding: 2em;
+  text-align: center;
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  height: 100%;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
