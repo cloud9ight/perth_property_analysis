@@ -41,19 +41,24 @@ except Exception as e:
     
 # ▼▼▼  Load the ML Model and Columns at App Startup ▼▼▼
 # ======================================================================
-model = None
-model_columns = None
-price_tier_map = None
+# model = None
+# model_columns = None
+# suburb_categories = None
+# property_type_categories = None
+# price_tier_map = None
 
-try:
-    # Attempt to load all necessary model files.
-    model = joblib.load('scripts/property_price_predictor.pkl')
-    model_columns = joblib.load('scripts/model_columns.pkl')
-    price_tier_map = joblib.load('scripts/price_tier_map.pkl')
-    logging.info("All ML model assets loaded successfully.")
-except Exception as e:
-    # Catch ANY exception during loading, not just FileNotFoundError.
-    logging.error(f"CRITICAL ERROR loading model files: {e}. Prediction feature will be disabled.")
+# try:
+#     # Attempt to load all necessary model files.
+#     model = joblib.load('scripts/property_price_predictor.pkl')
+#     model_columns = joblib.load('scripts/model_columns.pkl')
+#     # NEW: Load the category "scripts"
+#     suburb_categories = joblib.load('scripts/suburb_categories.pkl')
+#     property_type_categories = joblib.load('scripts/property_type_categories.pkl')
+#     price_tier_map = joblib.load('scripts/price_tier_map.pkl')
+#     logging.info("All ML model assets, including category lists, loaded successfully.")
+# except Exception as e:
+#     # Catch ANY exception during loading, not just FileNotFoundError.
+#     logging.error(f"CRITICAL ERROR loading model files: {e}. Prediction feature will be disabled.")
 
 
 # --- 3. Helper function to get dimension data ---
@@ -668,54 +673,86 @@ def get_schools_api(school_type):
         logging.error(f"Failed to fetch school data for API: {e}")
         return jsonify({'error': 'A database error occurred.'}), 500
 
-@app.route('/predict', methods=['GET', 'POST'])
-def predict():
-    dim_data = get_dimension_data()
-    prediction_result = None
+@app.route('/cma', methods=['GET', 'POST'])
+def cma():
+    """
+    Handles the Comparative Market Analysis (CMA) based value estimator.
+    This is the final, simplified, and robust version based on direct comparable sales.
+    """
+    # Fetch suburbs for the dropdown - this part is correct.
+    with engine.connect() as connection:
+        suburbs_df = pd.read_sql("SELECT suburb_id, suburb_name FROM DIM_Suburbs ORDER BY suburb_name", connection)
+    
+    estimation_package = None 
     user_input_values = {}
+    MIN_COMPS_REQUIRED = 5 # We still need a quality threshold.
 
     if request.method == 'POST':
-        # This check is now 100% safe because the variables are guaranteed to exist.
-        if model is None or model_columns is None or price_tier_map is None:
-            flash("Sorry, the prediction service is currently unavailable. Model files could not be loaded.", "danger")
-        else:
-            try:
-                # --- 1. Get user input from the form ---
-                user_input = {
-                    'bedrooms': request.form.get('bedrooms', type=int), 'bathrooms': request.form.get('bathrooms', type=int),
-                    'land_size': request.form.get('land_size', type=int), 'parking_spaces': request.form.get('parking_spaces', type=int),
-                    'distance_to_cbd': request.form.get('distance_to_cbd', type=int),
-                    'primary_school_icsea': request.form.get('primary_school_icsea', type=float),
-                    'secondary_school_icsea': request.form.get('secondary_school_icsea', type=float),
-                    'suburb_name': request.form.get('suburb_name')
-                }
-                user_input_values = user_input
-                logging.info(f"Received user input for prediction: {user_input}")
+        try:
+            # --- 1. Get user input, ensuring correct data types ---
+            suburb_id = request.form.get('suburb_id', type=int)
+            property_type = request.form.get('property_type')
+            bedrooms = request.form.get('bedrooms', type=int)
+            bathrooms = request.form.get('bathrooms', type=int)
+            user_input_values = request.form
+            
+            # --- 2. Build ONE simple, direct SQL query to find comps ---
+            conditions = [
+                "p.suburb_id = :suburb_id",
+                "p.property_type = :property_type",
+                "l.bedrooms = :bedrooms",
+                "l.bathrooms = :bathrooms",
+                "p.date_sold >= DATE_SUB(CURDATE(), INTERVAL 18 MONTH)"
+            ]
+            params = {
+                'suburb_id': suburb_id,
+                'property_type': property_type,
+                'bedrooms': bedrooms,
+                'bathrooms': bathrooms
+            }
+            where_clause = "WHERE " + " AND ".join(conditions)
+            
+            # This query is simple: it just gets the prices of matching properties.
+            query = f"""
+                SELECT p.price
+                FROM FACT_Properties p
+                JOIN DIM_Layouts l ON p.layout_id = l.layout_id
+                {where_clause};
+            """
 
-                # --- 2. Prepare the input data for the model (REAL LOGIC) ---
-                selected_suburb = user_input['suburb_name']
-                # Use the loaded map to find the tier. Default to a common tier if not found.
-                suburb_tier = price_tier_map.get(selected_suburb.lower(), 'Mid-Range')
+            # --- 3. Execute query and calculate the result in Pandas ---
+            with engine.connect() as connection:
+                comps_df = pd.read_sql(text(query), connection, params=params)
+                comps_found = len(comps_df)
+                logging.info(f"Found {comps_found} comparable sales matching the criteria.")
                 
-                input_df = pd.DataFrame([user_input])
-                input_df['suburb_value_tier'] = suburb_tier
-                
-                input_df_encoded = pd.get_dummies(input_df, columns=['suburb_value_tier'], prefix='tier')
-                
-                # Align columns with the trained model's columns - this is the core of consistency!
-                final_df = input_df_encoded.reindex(columns=model_columns, fill_value=0)
+                # Check if we have enough data for a reliable estimate
+                if comps_found >= MIN_COMPS_REQUIRED:
+                    # --- THE CORE LOGIC, as you described ---
+                    # 1. Find the median price using Pandas (more robust than complex SQL).
+                    median_price = comps_df['price'].median()
+                    
+                    # 2. Apply a simple, explainable market adjustment factor.
+                    MARKET_ADJUSTMENT_FACTOR = 1.05 # 5% growth
+                    estimated_price = median_price * MARKET_ADJUSTMENT_FACTOR
+                    
+                    # 3. Package the final, transparent result.
+                    estimation_package = {
+                        'estimated_price': f"${estimated_price:,.0f}",
+                        'median_price_of_comps': f"${median_price:,.0f}",
+                        'comps_found': comps_found
+                    }
+                else:
+                    # If not enough comps, provide clear feedback.
+                    flash(f"Found only {comps_found} comparable sales. A reliable estimation requires at least {MIN_COMPS_REQUIRED}. Please try broader criteria.", "warning")
 
-                # --- 3. Make the prediction ---
-                price_prediction = model.predict(final_df)[0]
-                prediction_result = f"${price_prediction:,.0f}"
+        except Exception as e:
+            flash(f"An error occurred during estimation: {e}", "danger")
+            logging.error(f"CMA Estimation Error: {e}")
 
-            except Exception as e:
-                flash(f"An error occurred during prediction: {e}", "danger")
-                logging.error(f"Prediction Error: {e}")
-
-    return render_template('predict.html', 
-                           suburbs=dim_data['suburbs'], 
-                           prediction=prediction_result,
+    return render_template('cma.html', 
+                           suburbs=suburbs_df.to_dict('records'),
+                           estimation=estimation_package,
                            user_input=user_input_values)
 
 
