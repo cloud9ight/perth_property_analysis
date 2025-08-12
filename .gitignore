@@ -5,3 +5,6 @@ venv/
 .env
 # Ignore large model artifact files
 ml_artifacts/*.pkl
+
+# Ignore large database backup files
+*.sql
