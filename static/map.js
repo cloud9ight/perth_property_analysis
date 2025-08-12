@@ -26,8 +26,23 @@ document.addEventListener("DOMContentLoaded", function () {
                     <strong>Price:</strong> $${new Intl.NumberFormat().format(
                       p.price
                     )}<br>
+                    <strong>Sold on:</strong> ${p.date_sold || "N/A"}<br>
+                    <strong>Type:</strong> ${
+                      p.property_type
+                        ? p.property_type.charAt(0).toUpperCase() +
+                          p.property_type.slice(1)
+                        : "N/A"
+                    }<br>
                     <strong>Layout:</strong> ${p.layout_name || "N/A"}<br>
-                    <strong>Sold on:</strong> ${p.date_sold}
+                    <strong>Land Size:</strong> ${
+                      p.land_size ? p.land_size + " sqm" : "N/A"
+                    }<br>
+                    <strong>Postcode:</strong> ${p.postcode || "N/A"}<br>
+                    <strong>Distance to CBD:</strong> ${
+                      p.distance_to_cbd
+                        ? (p.distance_to_cbd / 1000).toFixed(1) + " km"
+                        : "N/A"
+                    }
                 `;
         marker.bindPopup(popupContent);
         propertyMarkers.addLayer(marker);
