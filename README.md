@@ -1,129 +1,76 @@
 # Perth Property Market - Full Stack Data Analysis & BI Web App
 
-This repository documents an end-to-end data analysis project, evolving from a raw dataset to a fully interactive Business Intelligence (BI) web application for exploring the Perth real estate market.
+This repository contains the source code for a comprehensive, end-to-end data science project that analyses Perth real estate market. The project evolves from a raw dataset into a fully deployed, interactive Business Intelligence (BI) web application.
 
-**Live Application (Example URL):**
+**🚀 Live Application (URL):** **https://perth-property-app.onrender.com**
 ![alt text](image.png)
 
 ## 1. Project Overview & Objectives
 
-This project was conceived as a comprehensive portfolio piece to demonstrate a wide range of data-centric skills, including:
+This project was built as an end-to-end portfolio piece to demonstrate a full spectrum of data science and web development capabilities. It features a live, interactive web application with three core analytical tools:
 
-- **Data Engineering:** Designing a robust relational database schema and building an automated ETL pipeline to clean, transform, and load raw data.
-- **Backend Development:** Creating a powerful API and server-side logic using Python and Flask to handle complex, data-driven requests.
-- **Frontend Development:** Building a user-friendly, responsive, and interactive user interface with HTML, CSS, and modern JavaScript to present data insights.
-- **Data Analysis & BI:** Providing users with powerful tools to perform multi-dimensional analysis, compare market segments, and derive actionable insights from the data.
+- **📈 Multi-Dimensional Market Comparison (`/compare`):** A powerful BI dashboard where users can perform side-by-side comparisons of market statistics. It allows for multi-selection across various dimensions like **Suburb**, **Year**, and **Layout**, and uses a dynamic color-coding system to enhance visual association and readability.
 
-## 2. Tech Stack
+- **🗺️ Interactive GIS Map (`/map`):** A geospatial analysis tool built with Leaflet.js. It visualizes thousands of property sales using Marker Clustering for performance. Crucially, it features **on-demand, asynchronous loading** of school data layers, allowing users to visually correlate property locations with the quality of nearby schools—a key value driver identified by our ML model.
 
-| Category               | Technology / Library                                            |
-| ---------------------- | --------------------------------------------------------------- |
-| **Programming**        | Python 3.10+                                                    |
-| **Backend**            | Flask                                                           |
-| **Database**           | MySQL                                                           |
-| **DB Interface (ORM)** | SQLAlchemy, PyMySQL                                             |
-| **Data Manipulation**  | Pandas                                                          |
-| **Frontend**           | HTML5, CSS3, JavaScript                                         |
-| **JS Libraries**       | Choices.js (for searchable dropdowns), Google Maps API (Places) |
-| **Development**        | Jupyter Notebook, VS Code, Git, MySQL Workbench                 |
-| **Environment**        | `python-dotenv` for secret management                           |
+- **🏡 Comparative Market Estimator (`/cma`):** A transparent and trustworthy value estimation tool. Instead of deploying a "black box" model, this feature uses the **Comparative Market Analysis (CMA)** method. It queries the database for recently sold, directly comparable properties based on the most critical features (`Suburb`, `Layout`, etc.) that were identified during an initial machine learning exploration phase.
 
-## 3. Data Engineering: The ETL Pipeline & Database
+## 2. Tech Stack & Architecture
 
-The foundation of this application is a well-structured relational database populated by a reproducible ETL process.
+| Category          | Technology / Library                                   |
+| ----------------- | ------------------------------------------------------ |
+| **Programming**   | Python 3.13.2                                          |
+| **Backend**       | Flask, Gunicorn                                        |
+| **Database**      | MySQL (Cloud-hosted on **Railway.app**)                |
+| **DB Interface ** | SQLAlchemy, PyMySQL                                    |
+| **Data Science**  | Pandas, Scikit-learn, Joblib                           |
+| **Frontend**      | HTML5, CSS3, JavaScript                                |
+| **JS Libraries**  | Choices.js, eaflet.js, Leaflet.MarkerCluster, Chart.js |
+| **APIs**          | Google Maps API (Places, Geocoding, Maps JavaScript)   |
+| **Development**   | **Render** (Web Service), Git                          |
+| **Environment**   | `python-dotenv` for secret management                  |
 
-### 3.1. Database Schema Design
+---
 
-A **Star Schema** was designed and implemented in MySQL. This model separates descriptive attributes (Dimensions) from core transactional data (Facts), ensuring data integrity and optimizing analytical query performance.
+## 3. Data Engineering & ETL Pipeline
 
-- **Fact Table:** `FACT_Properties` (Stores core metrics like price, land size, dates, and foreign keys)
-- **Dimension Tables:**
-  - `DIM_Suburbs` (Unique suburbs and postcodes)
-  - `DIM_Agencies` (Unique real estate agencies)
-  - `DIM_Layouts` (Unique combinations of bedrooms & bathrooms)
-  - `DIM_Primary_Schools` & `DIM_Secondary_Schools` (Decoupled school dimensions with ICSEA scores)
+The application is powered by a robust ETL process and a well-structured relational database.
 
-_(The full DDL script is available in `sql/create_tables.sql`.)_
+- **Database Schema:** A **Star Schema** was implemented in MySQL, separating transactional data (`FACT_Properties`) from descriptive attributes (`DIM_Suburbs`, `DIM_Layouts`, etc.) to ensure data integrity and optimize analytical queries. _(Full DDL in `sql/create_tables.sql`)_.
 
-### 3.2. The ETL (Extract, Transform, Load) Process
+- **ETL Process:** An automated Python script performs the end-to-end ETL workflow:
+  1.  **Extract:** Loads data from the raw CSV and a manual `corrections.csv`.
+  2.  **Transform:** Sanitizes text data, converts types, and engineers features.
+  3.  **Enrich!!!:** A key step where a separate script (`geocode_schools.py`) uses the **Google Places API** to find and backfill missing latitude/longitude coordinates for all schools.
+  4.  **Load:** Populates the cloud-hosted MySQL database on Railway.
 
-A Python script, initially prototyped in a Jupyter Notebook, performs the following automated steps:
+---
 
-1.  **Extract:** Loads the raw `perth_housing.csv` and a custom `corrections.csv` for auditable manual fixes.
-2.  **Transform:**
-    - **Data Sanitization:** A critical step that standardizes key text fields (e.g., Suburb, Agency) by stripping whitespace and enforcing a consistent lowercase format to prevent data duplication.
-    - **Type Conversion:** Converts date columns to `datetime` objects.
-    - **Feature Engineering:** Creates powerful interaction features like `Layout` ('3b2b') from existing data.
-3.  **Load:** Populates the five `DIM_` tables with unique, sanitized data, then uses the returned primary keys to populate the central `FACT_Properties` table, correctly establishing all relationships.
+## 4. Machine Learning for Insight Generation
 
-## 4. Full Stack Web Application
+A full machine learning workflow was conducted in the `model_training.ipynb` notebook and all assets are archived in `ml_artifacts/`. A key phase involved building a `RandomForestRegressor` model (`R² ≈ 0.80`) not for direct prediction, but as a powerful **exploratory tool** to uncover the true drivers of property value.
 
-The core of this project is an interactive Flask web application that serves as a BI dashboard.
+### 4.1. The Core Insight: What Truly Matters?
 
-### 4.1. Feature: Data Entry (`/add`)
+The model's **feature importance** analysis provided a clear, data-driven answer: the most critical factors for predicting price are, in order, **`suburb_name`**, **school quality (ICSEA)**, **`property_type`**, and the specific **`layout`** (bedrooms/bathrooms).
 
-A user-friendly form for adding new property records, featuring:
+### 4.2. The Strategic Pivot: From "Black Box" to a Trustworthy Tool
 
-- **Address Autocomplete:** Integrates the **Google Maps Places API** to provide real-time address suggestions and auto-fill Suburb and Postcode information, significantly improving user experience and data quality.
-- **Searchable Dropdowns:** Implements **Choices.js** for long lists like Agency and Schools, allowing users to find options by typing.
-- **Robust Validation:** Employs both client-side (HTML5) and server-side (Flask) validation to ensure data integrity (e.g., checking for unique Listing IDs).
-- **Mock Mode:** A toggleable mode that allows testing the form's functionality by saving data to a temporary in-memory list instead of the live database.
+While the ML model was accurate, a "black box" prediction can be difficult for users to trust. Therefore, a strategic decision was made to use the model's insights to build a more transparent and intuitive tool.
 
-### 4.2. Feature: Multi-Dimensional Comparison (`/compare`)
+The final **Value Estimator (`/cma`)** is a direct result of this. It is a **Comparative Market Analysis (CMA)** tool whose filters are precisely the key features our ML model identified as most important. It provides an explainable estimation based on the median price of recent, directly comparable sales.
 
-The main analytical engine of the application, allowing users to:
+This approach combines the insight-generating power of machine learning with the trustworthiness of a traditional, rule-based valuation method, delivering a final product that is both smart and transparent.
 
-- **Filter by Multiple Dimensions:** Select one or more **Suburbs**, **Years**, and **Layouts** to create highly specific market segments for analysis.
-- **Dynamic Granularity:** The application intelligently aggregates and groups data based on the user's selections. A query for (2 Suburbs x 3 Years) will generate 6 unique summary cards, providing precise, non-aggregated insights.
-- **Dynamic Color-Coding:** A sophisticated algorithm based on the **Golden Ratio** assigns a unique and visually distinct color to each selected suburb. This color is used consistently in filter tags and result cards, dramatically improving data readability.
-- **Clear & Responsive UI:** An "Active Filters" bar provides context for the results, which are displayed in a fully responsive CSS Grid layout that adapts from 4 columns on desktop to a single column on mobile.
+---
 
-## 5. Feature: interactive map
+## 5. Deployment & CI/CD
 
-## 6. Predictive Modeling: House Price Prediction
+The application is fully deployed to the cloud, following modern DevOps practices.
 
-The final and most advanced feature of this project is a machine learning model that predicts property prices. This section details the end-to-end data science workflow, from feature engineering to model deployment via the web application.
+- **Database:** The MySQL database is hosted on **Railway.app**.
+- **Web Service:** The Flask application is deployed as a Web Service on **Render**.
+- **Continuous Deployment:** Render is connected to the `main` branch of this GitHub repository. Every `git push` to `main` automatically triggers a new build and deployment, ensuring the live application is always up-to-date.
+- **Configuration:** All sensitive information (Database URLs, API Keys) is securely managed as **Environment Variables** in Render, and are never hard-coded in the source.
 
-_(The full experimental process is documented in the `model_training.ipynb` notebook.)_
-
-### 6.1. Advanced Feature Engineering: Isolating Location Value
-
-A critical challenge in real estate prediction is accurately quantifying the value of "location" while controlling for a property's physical attributes. A sophisticated, two-stage modeling approach was implemented to solve this:
-
-1.  **Stage 1: Location-Agnostic Base Model:** A baseline RandomForest model was trained using _only_ the physical features of properties (e.g., bedrooms, bathrooms, land size, property type). This model learned the "average" price for a property of a certain specification, irrespective of its location.
-
-2.  **Stage 2: Residual Analysis:** This base model was used to predict the price of every property in the dataset. The **residual** (`actual_price - predicted_price`) was then calculated for each sale. This residual represents the **"pure location premium"**—the portion of the price attributable to location alone.
-
-3.  **Final Feature Creation:** The average residual (or "location premium") was calculated for each suburb. These premiums were then used to segment all suburbs into four distinct **`suburb_value_tier`** categories ('Standard', 'Good', 'High', 'Premium'). This data-driven, low-dimensionality feature became the primary geographical input for the final model, effectively solving the "suburb vs. postcode" dilemma.
-
-### 6.2. Model Training & Evaluation
-
-- **Model Choice:** A `RandomForestRegressor` was chosen for the final predictive model due to its high performance on tabular data, robustness to outliers, and its ability to provide clear feature importance scores.
-
-- **Data Preparation:** The final feature set included both numerical attributes (e.g., `land_size`, `distance_to_cbd`) and the one-hot encoded `suburb_value_tier`.
-
-- **Training:** The model was trained on an 80% split of the dataset, with 20% held back as an unseen test set for final evaluation.
-
-### 6.3. Model Performance & Insights
-
-The trained model demonstrated strong predictive power and provided valuable insights into the Perth property market.
-
-**Performance Metrics:**
-
-- **Test Set R-squared (R²):** **0.7972**
-  - _This indicates that the model can explain approximately **79.7%** of the variance in property prices, a strong result for a complex market._
-- **Test Set Root Mean Squared Error (RMSE):** **~$260,464**
-  - _This represents the typical error margin of the model's price predictions._
-
-**Top 5 Most Important Features:**
-The model revealed the key drivers of property value in Perth:
-
-1.  **`primary_school_icsea` (30.7%)**: The quality of the local primary school is, by a significant margin, the single most important predictor of price.
-2.  **`bathrooms` (22.2%)**: The number of bathrooms has a greater impact on price than the number of bedrooms.
-3.  **`land_size` (18.9%)**: The size of the property block remains a fundamental value driver.
-4.  **`distance_to_cbd` (9.8%)**: Proximity to the city center is a major factor.
-5.  **`tier_Premium Value` (6.3%)**: Our engineered feature, identifying if a property is in a top-tier suburb, proved to be highly influential.
-
-### 6.4. Deployment: The `/predict` Page
-
-The trained model and its required column structure were serialized using `joblib` (`property_price_predictor.pkl` & `model_columns.pkl`). These assets are loaded by the Flask application at startup to power the `/predict` page, where users can input property features and receive an instant price estimation, completing the full "model-to-production" lifecycle.
+---
