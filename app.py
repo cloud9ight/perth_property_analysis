@@ -11,33 +11,51 @@ import hashlib
 import random
 import joblib
 
-#load_dotenv()
-
 app = Flask(__name__)
 app.secret_key = 'a_very_secret_key_for_flashing_messages'
 logging.basicConfig(level=logging.INFO)
+
+load_dotenv()
+# ▼▼▼  THE FINAL, DEPLOYMENT-READY DATABASE CONNECTION LOGIC ▼▼▼
+
+db_connection_str = os.getenv("DATABASE_URL")
+if not db_connection_str:
+    raise ValueError("FATAL: DATABASE_URL environment variable is not set!")
+
+# A small fix for SQLAlchemy compatibility with Railway's URL format
+if db_connection_str.startswith("mysql://"):
+    db_connection_str = db_connection_str.replace("mysql://", "mysql+pymysql://", 1)
+
+try:
+    engine = create_engine(db_connection_str)
+    logging.info("Successfully created database engine.")
+except Exception as e:
+    logging.error(f"Failed to create database engine: {e}")
+    exit()
+
+
 
 # This list will act as our in-memory "fake" database for new records.
 # It will be reset every time the Flask server restarts.
 fake_database_records = []
 
 # --- 2. Database Connection ---
-DB_USER = os.getenv("DB_USER", "root")
-DB_PASS = 'password' 
-DB_HOST = 'localhost'
-DB_PORT = '3306'
-DB_NAME = 'perth_property_db'
-# Check if the database password was loaded
-if not DB_PASS:
-    raise ValueError("DB_PASS environment variable not set. Please create a .env file.")
+# DB_USER = os.getenv("DB_USER", "root")
+# DB_PASS = 'password' 
+# DB_HOST = 'localhost'
+# DB_PORT = '3306'
+# DB_NAME = 'perth_property_db'
+# # Check if the database password was loaded
+# if not DB_PASS:
+#     raise ValueError("DB_PASS environment variable not set. Please create a .env file.")
 
-try:
-    db_connection_str = f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
-    engine = create_engine(db_connection_str)
-    logging.info("Successfully created database engine.")
-except Exception as e:
-    logging.error(f"Failed to create database engine: {e}")
-    exit()
+# try:
+#     db_connection_str = f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
+#     engine = create_engine(db_connection_str)
+#     logging.info("Successfully created database engine.")
+# except Exception as e:
+#     logging.error(f"Failed to create database engine: {e}")
+#     exit()
     
 # ▼▼▼  Load the ML Model and Columns at App Startup ▼▼▼
 # ======================================================================
