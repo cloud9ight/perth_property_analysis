@@ -770,7 +770,18 @@ def cma():
                            estimation=estimation_package,
                            user_input=user_input_values)
 
+# --- NEW: Health Check Endpoint ---
+@app.route('/health')
+def health_check():
+    """
+    A simple health check endpoint.
+    Render uses this to check if the service is live.
+    External services like UptimeRobot can ping this to keep the app awake.
+    """
+    # It returns a simple text response with a 200 OK status code.
+    return "OK", 200
 
 # --- 5. Run the App ---
 if __name__ == '__main__':
     app.run(debug=True, port=5001) 
+    
